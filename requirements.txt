@@ -1,0 +1,7 @@
+# Root project dependencies
+fastapi
+uvicorn[standard]
+sqlalchemy
+pydantic
+pydantic-settings
+httpx

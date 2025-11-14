@@ -4,3 +4,4 @@ sqlalchemy
 pydantic
 pydantic-settings
 httpx
+python-multipart

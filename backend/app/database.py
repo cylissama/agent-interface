@@ -9,8 +9,13 @@ class Base(DeclarativeBase):
 
 
 settings = get_settings()
-engine = create_engine(settings.database_url, future=True)
-SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)
+# Use connect_args for SQLite to ensure foreign keys are enabled
+engine = create_engine(
+    settings.database_url,
+    connect_args={"check_same_thread": False} if "sqlite" in settings.database_url else {},
+    echo=False,
+)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 
 
 def get_db():

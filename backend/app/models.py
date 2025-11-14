@@ -19,6 +19,9 @@ class Conversation(Base):
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(255), nullable=False)
     created_at = Column(DateTime)
+    personality_prompt = Column(Text, nullable=True)  # Store the personality prompt
+    model_name = Column(String(100), nullable=True)  # Store the selected model for this conversation
+    character_image_url = Column(Text, nullable=True)  # Store the character image URL/data
     messages = relationship("Message", back_populates="conversation", cascade="all, delete-orphan")
 
 

@@ -1,31 +1,13 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
-import AnswerDisplay from "./components/AnswerDisplay.jsx";
 import ChatInterface from "./components/ChatInterface.jsx";
-import DocumentList from "./components/DocumentList.jsx";
-import FileUpload from "./components/FileUpload.jsx";
-import { listDocuments, sendMessage } from "./services/api.js";
+import { sendMessage } from "./services/api.js";
+import "./App.css";
 
 const App = () => {
-  const [documents, setDocuments] = useState([]);
-  const [lastAnswer, setLastAnswer] = useState("");
-
-  useEffect(() => {
-    listDocuments()
-      .then(setDocuments)
-      .catch((error) => {
-        console.error("Failed to load documents", error);
-      });
-  }, []);
-
-  const handleUpload = (file) => {
-    console.log("Upload", file);
-  };
-
   const handleSend = async (message) => {
     try {
       const response = await sendMessage({ conversationId: 1, content: message.content });
-      setLastAnswer(response.content);
       return response;
     } catch (error) {
       console.error("Failed to send message", error);
@@ -34,12 +16,17 @@ const App = () => {
   };
 
   return (
-    <div>
-      <h1>Agent Interface</h1>
-      <FileUpload onUpload={handleUpload} />
-      <DocumentList documents={documents} />
-      <ChatInterface onSend={handleSend} />
-      <AnswerDisplay answer={lastAnswer} />
+    <div className="app-container">
+      <div className="terminal-header">
+        <pre className="terminal-title">{`   ___________ __ __  ___________
+  / ____/ ___// // / / ____/ ___/
+ / /    \\__ \\/ // /_/___ \\/ __ \\ 
+/ /___ ___/ /__  __/___/ / /_/ / 
+\\____//____/  /_/ /_____/\\____/  `}</pre>
+      </div>
+      <div className="chat-container">
+        <ChatInterface onSend={handleSend} />
+      </div>
     </div>
   );
 };

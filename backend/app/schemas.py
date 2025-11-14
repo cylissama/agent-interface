@@ -18,7 +18,7 @@ class Document(DocumentBase):
     created_at: Optional[datetime] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class MessageBase(BaseModel):
@@ -36,7 +36,7 @@ class Message(MessageBase):
     created_at: Optional[datetime] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True
 
 
 class ConversationBase(BaseModel):
@@ -51,6 +51,7 @@ class Conversation(ConversationBase):
     id: int
     created_at: Optional[datetime] = None
     messages: list[Message] = []
+    character_image_url: Optional[str] = None
 
     class Config:
-        orm_mode = True
+        from_attributes = True

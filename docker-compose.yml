@@ -1,5 +1,3 @@
-version: "3.9"
-
 services:
   backend:
     build: ./backend
@@ -9,8 +7,9 @@ services:
     volumes:
       - ./backend/app:/app/app
       - ./backend/uploads:/app/uploads
-    env_file:
-      - .env
+    environment:
+      - DATABASE_URL=sqlite:///./agent.db
+      - LLM_API_KEY=${LLM_API_KEY:-}
 
   frontend:
     build: ./frontend

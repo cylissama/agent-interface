@@ -37,13 +37,9 @@ async def generate_personality(
     # Generate personality prompt using Gemini
     try:
         personality_prompt = await gemini_service.generate_personality_prompt(request.character)
-        
-        # Generate character image description
-        character_image = await gemini_service.generate_character_image(request.character)
-        
-        # Save personality prompt and image to conversation
+
+        # Save personality prompt to conversation (no profile image)
         conversation.personality_prompt = personality_prompt
-        conversation.character_image_url = character_image  # Store description for now
         db.commit()
         db.refresh(conversation)
         
@@ -51,7 +47,6 @@ async def generate_personality(
             "success": True,
             "character": request.character,
             "personality_prompt": personality_prompt,
-            "character_image": character_image,  # Return image description/URL
         }
     except ValueError as e:
         # Configuration errors (e.g., missing API key)

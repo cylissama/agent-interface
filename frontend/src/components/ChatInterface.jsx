@@ -7,12 +7,25 @@ const ChatInterface = ({ onSend }) => {
   const [personality, setPersonality] = useState("");
   const [isLoadingPersonality, setIsLoadingPersonality] = useState(false);
   const [systemInfo, setSystemInfo] = useState(null);
-  const [characterImage, setCharacterImage] = useState(null);
+  // Profile image removed
+  const [attachedFiles, setAttachedFiles] = useState([]);
+  const [showSources, setShowSources] = useState(false);
+  const [urlInput, setUrlInput] = useState("");
+  const [urlCursorPosition, setUrlCursorPosition] = useState({ top: 0, left: 0, visible: false });
   const [cursorPosition, setCursorPosition] = useState({ top: 0, left: 0, visible: false });
+  const [personalityCursorPosition, setPersonalityCursorPosition] = useState({ top: 0, left: 0, visible: false });
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
   const cursorRef = useRef(null);
   const inputWrapperRef = useRef(null);
+  const personalityInputRef = useRef(null);
+  const personalityCursorRef = useRef(null);
+  const personalityWrapperRef = useRef(null);
+  const fileInputRef = useRef(null);
+  const hiddenFileInputRef = useRef(null);
+  const urlInputRef = useRef(null);
+  const urlCursorRef = useRef(null);
+  const urlWrapperRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -44,37 +57,31 @@ const ChatInterface = ({ onSend }) => {
       }
     };
     
-    const loadConversation = async () => {
-      try {
-        const response = await fetch("http://localhost:8000/chat/conversation/1");
-        if (response.ok) {
-          const conversation = await response.json();
-          if (conversation.character_image_url) {
-            setCharacterImage(conversation.character_image_url);
-          }
-        }
-      } catch (error) {
-        // Conversation might not exist yet, that's okay
-        console.error("Failed to load conversation:", error);
-      }
-    };
-    
     checkSystemInfo();
-    loadConversation();
   }, []);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    const userMessage = { role: "user", content: input.trim() };
+    // Merge URL context into the outgoing content if provided
+    const trimmed = input.trim();
+    const urlTrimmed = urlInput.trim();
+    const combinedContent = urlTrimmed
+      ? `${trimmed}\n\nSources:\n- ${urlTrimmed}`
+      : trimmed;
+
+    const userMessage = { role: "user", content: combinedContent };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
 
     if (onSend) {
       try {
-        const response = await onSend(userMessage);
+        const response = await onSend({
+          ...userMessage,
+          files: attachedFiles
+        });
         if (response) {
           setMessages((prev) => [...prev, response]);
         }
@@ -91,6 +98,11 @@ const ChatInterface = ({ onSend }) => {
         setIsLoading(false);
       }
     }
+
+    // Optional: reset sources after send
+    setAttachedFiles([]);
+    setUrlInput("");
+    setShowSources(false);
   };
 
   const handleKeyDown = (event) => {
@@ -127,11 +139,6 @@ const ChatInterface = ({ onSend }) => {
         content: `Personality set to: ${personality}`,
       };
       setMessages((prev) => [...prev, confirmationMessage]);
-      
-      // Store character image if provided
-      if (data.character_image) {
-        setCharacterImage(data.character_image);
-      }
       
       setPersonality(""); // Clear the input field
     } catch (error) {
@@ -222,11 +229,150 @@ const ChatInterface = ({ onSend }) => {
     });
   };
 
+  const updatePersonalityCursorPosition = () => {
+    if (!personalityInputRef.current) return;
+
+    const inputEl = personalityInputRef.current;
+    const selectionStart = inputEl.selectionStart;
+    const textBeforeCursor = personality.substring(0, selectionStart);
+
+    const mirror = document.createElement('div');
+    const inputStyle = window.getComputedStyle(inputEl);
+    const stylesToCopy = [
+      'font', 'fontSize', 'fontFamily', 'fontWeight', 'fontStyle',
+      'letterSpacing', 'wordSpacing', 'textTransform', 'textIndent',
+      'whiteSpace', 'wordWrap', 'wordBreak', 'lineHeight',
+      'padding', 'border', 'boxSizing', 'width', 'margin'
+    ];
+    stylesToCopy.forEach(prop => {
+      mirror.style[prop] = inputStyle[prop];
+    });
+    mirror.style.width = `${inputEl.offsetWidth}px`;
+    mirror.style.position = 'absolute';
+    mirror.style.visibility = 'hidden';
+    mirror.style.top = '-9999px';
+    mirror.style.left = '-9999px';
+    mirror.style.whiteSpace = 'pre-wrap';
+    mirror.style.wordWrap = 'break-word';
+
+    const textNode = document.createTextNode(textBeforeCursor);
+    mirror.appendChild(textNode);
+
+    const cursorMarker = document.createElement('span');
+    cursorMarker.style.display = 'inline-block';
+    cursorMarker.style.width = '0';
+    cursorMarker.style.height = '1em';
+    mirror.appendChild(cursorMarker);
+
+    document.body.appendChild(mirror);
+
+    const markerRect = cursorMarker.getBoundingClientRect();
+    const mirrorRect = mirror.getBoundingClientRect();
+
+    document.body.removeChild(mirror);
+
+    setPersonalityCursorPosition({
+      top: Math.max(0, markerRect.top - mirrorRect.top),
+      left: Math.max(0, markerRect.left - mirrorRect.left),
+      visible: document.activeElement === inputEl
+    });
+  };
+
   useEffect(() => {
     adjustTextareaHeight();
     updateCursorPosition();
   }, [input]);
 
+  useEffect(() => {
+    updatePersonalityCursorPosition();
+  }, [personality]);
+
+  const updateUrlCursorPosition = () => {
+    if (!urlInputRef.current) return;
+
+    const inputEl = urlInputRef.current;
+    const selectionStart = inputEl.selectionStart ?? 0;
+    const textBeforeCursor = urlInput.substring(0, selectionStart);
+
+    const mirror = document.createElement('div');
+    const inputStyle = window.getComputedStyle(inputEl);
+    const stylesToCopy = [
+      'font', 'fontSize', 'fontFamily', 'fontWeight', 'fontStyle',
+      'letterSpacing', 'wordSpacing', 'textTransform', 'textIndent',
+      'whiteSpace', 'wordWrap', 'wordBreak', 'lineHeight',
+      'padding', 'border', 'boxSizing', 'width', 'margin'
+    ];
+    stylesToCopy.forEach(prop => {
+      mirror.style[prop] = inputStyle[prop];
+    });
+    mirror.style.width = `${inputEl.offsetWidth}px`;
+    mirror.style.position = 'absolute';
+    mirror.style.visibility = 'hidden';
+    mirror.style.top = '-9999px';
+    mirror.style.left = '-9999px';
+    mirror.style.whiteSpace = 'pre-wrap';
+    mirror.style.wordWrap = 'break-word';
+
+    mirror.appendChild(document.createTextNode(textBeforeCursor));
+    const cursorMarker = document.createElement('span');
+    cursorMarker.style.display = 'inline-block';
+    cursorMarker.style.width = '0';
+    cursorMarker.style.height = '1em';
+    mirror.appendChild(cursorMarker);
+
+    document.body.appendChild(mirror);
+    const markerRect = cursorMarker.getBoundingClientRect();
+    const mirrorRect = mirror.getBoundingClientRect();
+    document.body.removeChild(mirror);
+
+    setUrlCursorPosition({
+      top: Math.max(0, markerRect.top - mirrorRect.top),
+      left: Math.max(0, markerRect.left - mirrorRect.left),
+      visible: document.activeElement === inputEl
+    });
+  };
+
+  useEffect(() => {
+    updateUrlCursorPosition();
+  }, [urlInput]);
+
+  useEffect(() => {
+    const inputEl = urlInputRef.current;
+    if (!inputEl) return;
+
+    const handleInput = () => {
+      requestAnimationFrame(() => {
+        setTimeout(updateUrlCursorPosition, 0);
+      });
+    };
+    const handleClick = handleInput;
+    const handleKey = handleInput;
+    const handleFocus = () => {
+      setUrlCursorPosition(prev => ({ ...prev, visible: true }));
+      updateUrlCursorPosition();
+    };
+    const handleBlur = () => {
+      setUrlCursorPosition(prev => ({ ...prev, visible: false }));
+    };
+
+    inputEl.addEventListener('input', handleInput);
+    inputEl.addEventListener('click', handleClick);
+    inputEl.addEventListener('keydown', handleKey);
+    inputEl.addEventListener('keyup', handleKey);
+    inputEl.addEventListener('focus', handleFocus);
+    inputEl.addEventListener('blur', handleBlur);
+
+    updateUrlCursorPosition();
+
+    return () => {
+      inputEl.removeEventListener('input', handleInput);
+      inputEl.removeEventListener('click', handleClick);
+      inputEl.removeEventListener('keydown', handleKey);
+      inputEl.removeEventListener('keyup', handleKey);
+      inputEl.removeEventListener('focus', handleFocus);
+      inputEl.removeEventListener('blur', handleBlur);
+    };
+  }, [urlInput]);
   useEffect(() => {
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -278,6 +424,53 @@ const ChatInterface = ({ onSend }) => {
     };
   }, [input]);
 
+  useEffect(() => {
+    const inputEl = personalityInputRef.current;
+    if (!inputEl) return;
+
+    const handleInput = () => {
+      requestAnimationFrame(() => {
+        setTimeout(updatePersonalityCursorPosition, 0);
+      });
+    };
+    const handleClick = () => {
+      requestAnimationFrame(() => {
+        setTimeout(updatePersonalityCursorPosition, 0);
+      });
+    };
+    const handleKey = () => {
+      requestAnimationFrame(() => {
+        setTimeout(updatePersonalityCursorPosition, 0);
+      });
+    };
+    const handleFocus = () => {
+      setPersonalityCursorPosition(prev => ({ ...prev, visible: true }));
+      updatePersonalityCursorPosition();
+    };
+    const handleBlur = () => {
+      setPersonalityCursorPosition(prev => ({ ...prev, visible: false }));
+    };
+
+    inputEl.addEventListener('input', handleInput);
+    inputEl.addEventListener('click', handleClick);
+    inputEl.addEventListener('keydown', handleKey);
+    inputEl.addEventListener('keyup', handleKey);
+    inputEl.addEventListener('focus', handleFocus);
+    inputEl.addEventListener('blur', handleBlur);
+
+    // Initial position
+    updatePersonalityCursorPosition();
+
+    return () => {
+      inputEl.removeEventListener('input', handleInput);
+      inputEl.removeEventListener('click', handleClick);
+      inputEl.removeEventListener('keydown', handleKey);
+      inputEl.removeEventListener('keyup', handleKey);
+      inputEl.removeEventListener('focus', handleFocus);
+      inputEl.removeEventListener('blur', handleBlur);
+    };
+  }, [personality]);
+
   return (
     <>
       <div className="messages-container">
@@ -310,6 +503,43 @@ const ChatInterface = ({ onSend }) => {
         )}
         <div ref={messagesEndRef} />
       </div>
+
+      {/* Sources panel ABOVE message box */}
+      {showSources && (
+        <div className="sources-panel" style={{ marginTop: 8, marginBottom: 8, borderTop: "1px solid #2a2a2a", borderBottom: "1px solid #2a2a2a", padding: 8 }}>
+          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+            {/* File input */}
+            <div>
+              <label style={{ display: "block", marginBottom: 4 }}>Attach files</label>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <button
+                  type="button"
+                  className="send-button"
+                  onClick={() => hiddenFileInputRef.current?.click()}
+                  title="Choose files"
+                >
+                  Choose files
+                </button>
+                {attachedFiles.length > 0 && (
+                  <span style={{ fontSize: 12 }}>{attachedFiles.length} file(s) selected</span>
+                )}
+              </div>
+              {attachedFiles.length > 0 && (
+                <div style={{ marginTop: 4, fontSize: 12 }}>
+                  <button
+                    type="button"
+                    onClick={() => setAttachedFiles([])}
+                    style={{ marginLeft: 8, fontSize: 12 }}
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+            </div>
+            {/* URLs input removed */}
+          </div>
+        </div>
+      )}
       <div className="input-container">
         <div className="input-wrapper" ref={inputWrapperRef}>
           <form onSubmit={handleSubmit} className="input-form">
@@ -323,6 +553,7 @@ const ChatInterface = ({ onSend }) => {
                 placeholder="Message Agent Interface..."
                 rows={1}
                 disabled={isLoading}
+                style={{ caretColor: cursorPosition.visible ? "transparent" : undefined }}
               />
               {cursorPosition.visible && (
                 <span
@@ -335,43 +566,94 @@ const ChatInterface = ({ onSend }) => {
                 />
               )}
             </div>
-            <button
-              type="submit"
-              className="send-button"
-              disabled={!input.trim() || isLoading}
-            >
-              <svg
-                width="16"
-                height="16"
-                viewBox="0 0 16 16"
-                fill="none"
-                xmlns="http://www.w3.org/2000/svg"
+            {/* Attachments button (left of Send) */}
+            <div className="attachments-controls" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+              <button
+                type="button"
+                className="send-button"
+                aria-label="Add files or URLs"
+                title="Add files or URLs"
+                onClick={() => {
+                  // Open native file picker and reveal sources panel
+                  setShowSources(true);
+                  hiddenFileInputRef.current?.click();
+                }}
+                disabled={isLoading}
+                style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}
               >
-                <path
-                  d="M.5 1.163l1.5 1.5L8 8l-6 5.337-1.5 1.5L0 15.5V.5z"
-                  fill="currentColor"
-                />
-              </svg>
-            </button>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M16.5 6.5l-7.78 7.78a3 3 0 104.24 4.24l7.07-7.07a5 5 0 10-7.07-7.07L6.4 8.85" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              <button
+                type="submit"
+                className="send-button"
+                disabled={!input.trim() || isLoading}
+              >
+                <svg
+                  width="16"
+                  height="16"
+                  viewBox="0 0 16 16"
+                  fill="none"
+                  xmlns="http://www.w3.org/2000/svg"
+                >
+                  <path
+                    d="M.5 1.163l1.5 1.5L8 8l-6 5.337-1.5 1.5L0 15.5V.5z"
+                    fill="currentColor"
+                  />
+                </svg>
+              </button>
+            </div>
           </form>
+
+          {/* Hidden file input to trigger system file picker from the attach button */}
+          <input
+            ref={hiddenFileInputRef}
+            type="file"
+            multiple
+            style={{ display: "none" }}
+            onChange={(e) => {
+              const files = Array.from(e.target.files ?? []);
+              if (files.length) {
+                setAttachedFiles(files);
+                setShowSources(true);
+              }
+            }}
+          />
+
         </div>
       </div>
+
+      {/* Website URL box removed as requested */}
       <div className="personality-container">
         <div className="personality-section">
           <label className="personality-label">Character Personality:</label>
-          <input
-            type="text"
-            className="personality-input"
-            value={personality}
-            onChange={(e) => setPersonality(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && personality.trim()) {
-                handlePersonalityChange();
-              }
-            }}
-            placeholder="Enter character name (e.g., 'Trevor from GTA V')"
-            disabled={isLoadingPersonality}
-          />
+          <div className="textarea-wrapper" ref={personalityWrapperRef}>
+            <input
+              ref={personalityInputRef}
+              type="text"
+              className="personality-input"
+              value={personality}
+              onChange={(e) => setPersonality(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && personality.trim()) {
+                  handlePersonalityChange();
+                }
+              }}
+              placeholder="Enter character name (e.g., 'Trevor from GTA V')"
+              disabled={isLoadingPersonality}
+            />
+            {personalityCursorPosition.visible && (
+              <span
+                ref={personalityCursorRef}
+                className="terminal-cursor"
+                style={{
+                  top: `${personalityCursorPosition.top}px`,
+                  left: `${personalityCursorPosition.left}px`,
+                }}
+              />
+            )}
+          </div>
           <button
             className="personality-button"
             onClick={handlePersonalityChange}
@@ -379,29 +661,10 @@ const ChatInterface = ({ onSend }) => {
           >
             {isLoadingPersonality ? "Loading..." : "Set"}
           </button>
-          <div className="character-profile">
-            {characterImage ? (
-              <div className="character-image">
-                {characterImage.startsWith("data:image") ? (
-                  <img 
-                    src={characterImage} 
-                    alt="Character" 
-                    className="character-image-img"
-                  />
-                ) : (
-                  <div className="image-placeholder">
-                    {characterImage.substring(0, 100)}...
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="character-image-default">
-                <span className="default-dash">—</span>
-              </div>
-            )}
-          </div>
+          {/* Profile picture display removed */}
         </div>
       </div>
+      {/* Footer spacing not needed anymore */}
     </>
   );
 };

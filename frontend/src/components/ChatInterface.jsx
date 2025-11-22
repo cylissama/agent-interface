@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from "react";
+import { getSystemInfo, generatePersonality } from "../services/api.js";
 
 const ChatInterface = ({ onSend }) => {
   const [input, setInput] = useState("");
@@ -7,7 +8,6 @@ const ChatInterface = ({ onSend }) => {
   const [personality, setPersonality] = useState("");
   const [isLoadingPersonality, setIsLoadingPersonality] = useState(false);
   const [systemInfo, setSystemInfo] = useState(null);
-  // Profile image removed
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [showSources, setShowSources] = useState(false);
   const [urlInput, setUrlInput] = useState("");
@@ -39,18 +39,15 @@ const ChatInterface = ({ onSend }) => {
   useEffect(() => {
     const checkSystemInfo = async () => {
       try {
-        const response = await fetch("http://localhost:8000/system/info");
-        if (response.ok) {
-          const info = await response.json();
-          setSystemInfo(info);
-          // Show system info message (only if no messages exist)
-          if (messages.length === 0) {
-            const systemMsg = {
-              role: "system",
-              content: `System detected: ${info.device}. Using model: ${info.recommended_model}`,
-            };
-            setMessages([systemMsg]);
-          }
+        const info = await getSystemInfo();
+        setSystemInfo(info);
+        // Show system info message (only if no messages exist)
+        if (messages.length === 0) {
+          const systemMsg = {
+            role: "system",
+            content: `System detected: ${info.device}. Using model: ${info.recommended_model}`,
+          };
+          setMessages([systemMsg]);
         }
       } catch (error) {
         console.error("Failed to get system info:", error);
@@ -117,21 +114,11 @@ const ChatInterface = ({ onSend }) => {
     
     setIsLoadingPersonality(true);
     try {
-      const response = await fetch("http://localhost:8000/personality/generate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          character: personality.trim(),
-          conversation_id: 1 
-        }),
+      const data = await generatePersonality({ 
+        character: personality.trim(),
+        conversationId: 1 
       });
       
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({ detail: response.statusText }));
-        throw new Error(errorData.detail || `HTTP ${response.status}: ${response.statusText}`);
-      }
-      
-      const data = await response.json();
       // Personality is now set on the backend for this conversation
       // Show confirmation message in the chat
       const confirmationMessage = {

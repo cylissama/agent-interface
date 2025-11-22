@@ -10,77 +10,87 @@ A terminal-style chat interface powered by Ollama LLM.
 2. **Python 3.11+** with virtual environment
 3. **Node.js** for frontend
 
-### Backend Setup
+### Quick Start
 
-1. Create and activate virtual environment:
-```bash
-python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-```
+1. **Start Ollama** (if not already running):
+   ```bash
+   ollama serve
+   ```
 
-2. Install dependencies:
-```bash
-pip install -r backend/requirements.txt
-```
+2. **Pull a model** (optional, defaults to llama3.2):
+   ```bash
+   ollama pull llama3.2
+   ```
 
-3. Start Ollama (if not already running):
-```bash
-ollama serve
-```
-
-4. Pull a model (optional, defaults to llama3.2):
-```bash
-ollama pull llama3.2
-# Or use another model like: ollama pull mistral
-```
-
-5. Configure settings (optional):
-Create a `.env` file in the project root:
-```env
-OLLAMA_BASE_URL=http://localhost:11434
-OLLAMA_MODEL=llama3.2
-GEMINI_API_KEY=your_gemini_api_key_here
-```
-
-   To get a Gemini API key:
-   - Go to [Google AI Studio](https://makersuite.google.com/app/apikey)
+3. **Configure settings** (optional):
+   Create a `.env` file in the project root:
+   ```env
+   OLLAMA_BASE_URL=http://localhost:11434
+   OLLAMA_MODEL=llama3.2
+   GROQ_API_KEY=your_groq_api_key_here
+   GROQ_BASE_URL=https://api.groq.com
+   GROQ_MODEL=mixtral-8x7b-32768
+   ```
+   
+   To get a GROQ API key:
+   - Go to [Groq Console](https://console.groq.com/)
+   - Sign up or log in
+   - Navigate to API Keys section
    - Create a new API key
    - Add it to your `.env` file
 
-6. Start the backend:
-```bash
-cd backend
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
+4. **Start the project:**
+   
+   **Windows (PowerShell):**
+   ```powershell
+   .\StartDev.ps1
+   ```
+   
+   **Note:** If you get an execution policy error, run:
+   ```powershell
+   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+   .\StartDev.ps1
+   ```
+   
+   **Linux/Mac:**
+   ```bash
+   chmod +x StartDev.sh
+   ./StartDev.sh
+   ```
 
-### Frontend Setup
+   This single command will:
+   - Check prerequisites (Python, Node.js)
+   - Create/activate Python virtual environment at project root (`.venv/`)
+   - Install all dependencies (backend Python packages & frontend npm packages)
+   - Start backend server on http://localhost:8000
+   - Start frontend server on http://localhost:5173
+   - Display all service URLs
+   
+   **Note:** The project uses a single Python virtual environment at the project root (`.venv/`) for all Python dependencies. The frontend uses npm/node_modules (not a Python environment).
 
-1. Install dependencies:
-```bash
-cd frontend
-npm install
-```
+5. **Open your browser:**
+   - Frontend: http://localhost:5173
+   - API Docs: http://localhost:8000/docs
 
-2. Start the dev server:
-```bash
-npm run dev
-```
-
-3. Open `http://localhost:5173` in your browser
-
-### Quick Start (Both Services)
-
-Use the provided script:
-```bash
-./start-dev.sh
-```
-
-This will start both backend and frontend servers.
+Press `Ctrl+C` in the terminal to stop all services.
 
 ## Configuration
 
 - **Ollama Base URL**: Defaults to `http://localhost:11434`
 - **Ollama Model**: Defaults to `llama3.2`
+- **GROQ API Key**: Required for personality generation via Minstrel API
+- **GROQ Base URL**: Defaults to `https://api.groq.com`
+- **GROQ Model**: Defaults to `mixtral-8x7b-32768` (adjust if using a specific Minstrel model)
 - **Database**: SQLite database at `./agent.db`
 
 Override these in a `.env` file or environment variables.
+
+## Personality System
+
+The personality system uses GROQ Minstrel API to generate detailed character personality prompts:
+
+1. User enters a character name (e.g., "Trevor from GTA V")
+2. The character name is sent to GROQ Minstrel API
+3. Minstrel generates a detailed personality prompt with traits, speech patterns, and mannerisms
+4. The generated personality prompt is saved to the conversation
+5. All subsequent Ollama responses use this personality context until a new personality is selected

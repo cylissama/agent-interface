@@ -5,7 +5,7 @@ from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..services import gemini_service
+from ..services import minstrel_service
 
 router = APIRouter()
 
@@ -20,8 +20,20 @@ async def generate_personality(
     request: PersonalityRequest,
     db: Session = Depends(get_db),
 ):
-    """Generate a personality prompt using Gemini based on character name."""
+    """Generate a personality prompt using GROQ Minstrel API based on character name."""
     from ..models import Conversation
+    from ..config import get_settings
+    
+    # Check if GROQ API key is configured
+    settings = get_settings()
+    if not settings.groq_api_key:
+        raise HTTPException(
+            status_code=400, 
+            detail="GROQ_API_KEY not configured. Please set it in your .env file in the project root."
+        )
+    
+    if not request.character or not request.character.strip():
+        raise HTTPException(status_code=400, detail="Character name cannot be empty")
     
     # Get or create conversation
     conversation = db.query(Conversation).filter(Conversation.id == request.conversation_id).first()
@@ -34,11 +46,11 @@ async def generate_personality(
         db.add(conversation)
         db.commit()
     
-    # Generate personality prompt using Gemini
+    # Generate personality prompt using GROQ Minstrel API
     try:
-        personality_prompt = await gemini_service.generate_personality_prompt(request.character)
+        personality_prompt = await minstrel_service.generate_personality_prompt(request.character.strip())
 
-        # Save personality prompt to conversation (no profile image)
+        # Save personality prompt to conversation
         conversation.personality_prompt = personality_prompt
         db.commit()
         db.refresh(conversation)

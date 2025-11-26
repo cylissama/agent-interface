@@ -5,3 +5,10 @@ pydantic
 pydantic-settings
 httpx
 python-multipart
+PyPDF2
+pdfplumber
+python-docx
+beautifulsoup4
+lxml
+trafilatura
+striprtf

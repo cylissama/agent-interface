@@ -55,3 +55,13 @@ class Conversation(ConversationBase):
 
     class Config:
         from_attributes = True
+
+
+class ContextMetadata(BaseModel):
+    """Metadata about context sources used in a conversation."""
+    total_sources: int
+    total_chunks: int
+    estimated_tokens: int
+    truncated: bool = False
+    included_sources: Optional[int] = None
+    included_chunks: Optional[int] = None

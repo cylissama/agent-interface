@@ -1,31 +1,48 @@
 import { useState, useRef, useEffect } from "react";
-import { getSystemInfo, generatePersonality } from "../services/api.js";
+import { getSystemInfo } from "../services/api.js";
 
 const ChatInterface = ({ onSend }) => {
   const [input, setInput] = useState("");
   const [messages, setMessages] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [personality, setPersonality] = useState("");
-  const [isLoadingPersonality, setIsLoadingPersonality] = useState(false);
   const [systemInfo, setSystemInfo] = useState(null);
   const [attachedFiles, setAttachedFiles] = useState([]);
   const [showSources, setShowSources] = useState(false);
   const [urlInput, setUrlInput] = useState("");
+  const [urls, setUrls] = useState([]);
   const [urlCursorPosition, setUrlCursorPosition] = useState({ top: 0, left: 0, visible: false });
   const [cursorPosition, setCursorPosition] = useState({ top: 0, left: 0, visible: false });
-  const [personalityCursorPosition, setPersonalityCursorPosition] = useState({ top: 0, left: 0, visible: false });
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
   const cursorRef = useRef(null);
   const inputWrapperRef = useRef(null);
-  const personalityInputRef = useRef(null);
-  const personalityCursorRef = useRef(null);
-  const personalityWrapperRef = useRef(null);
   const fileInputRef = useRef(null);
   const hiddenFileInputRef = useRef(null);
   const urlInputRef = useRef(null);
   const urlCursorRef = useRef(null);
   const urlWrapperRef = useRef(null);
+
+  // Estimate tokens using word count (more accurate: 1 token ≈ 0.75 words, or use word count directly)
+  const estimateTokens = (text) => {
+    // Use word count as approximation for tokens
+    const words = text.split(/\s+/).filter(word => word.length > 0);
+    return words.length;
+  };
+
+  // Calculate total context tokens
+  const calculateContextTokens = () => {
+    let total = 0;
+    // Estimate tokens for files (we don't have content yet, so estimate based on file size)
+    attachedFiles.forEach(file => {
+      // Rough estimate: assume 50% of file size is text content
+      // Estimate ~5 characters per word, so words ≈ (file.size * 0.5) / 5
+      const estimatedWords = Math.floor((file.size * 0.5) / 5);
+      total += estimatedWords; // Use word count as token approximation
+    });
+    // URLs will be processed server-side, so we can't estimate accurately
+    // But we can show a note that they'll be included
+    return total;
+  };
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -61,45 +78,61 @@ const ChatInterface = ({ onSend }) => {
     event.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    // Merge URL context into the outgoing content if provided
-    const trimmed = input.trim();
-    const urlTrimmed = urlInput.trim();
-    const combinedContent = urlTrimmed
-      ? `${trimmed}\n\nSources:\n- ${urlTrimmed}`
-      : trimmed;
-
-    const userMessage = { role: "user", content: combinedContent };
+    const currentInput = input.trim();
+    const userMessage = { role: "user", content: currentInput };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
 
-    if (onSend) {
-      try {
+    try {
+      // Upload files if any
+      let documentIds = [];
+      if (attachedFiles.length > 0) {
+        const { uploadDocuments } = await import("../services/api.js");
+        const uploadedDocs = await uploadDocuments(Array.from(attachedFiles));
+        documentIds = uploadedDocs.map(doc => doc.id);
+      }
+      
+      // Process URLs if any
+      let processedUrls = [];
+      if (urls.length > 0) {
+        console.log("URLs to send:", urls);
+        const { processUrls } = await import("../services/api.js");
+        await processUrls(urls);  // Process URLs to cache them
+        processedUrls = urls;
+      }
+      
+      console.log("Sending message with:", { documentIds, urls: processedUrls, content: currentInput });
+      
+      // Send message with context
+      if (onSend) {
         const response = await onSend({
           ...userMessage,
-          files: attachedFiles
+          content: currentInput,
+          documentIds,
+          urls: processedUrls
         });
         if (response) {
           setMessages((prev) => [...prev, response]);
         }
-      } catch (error) {
-        console.error("Error sending message:", error);
-        setMessages((prev) => [
-          ...prev,
-          {
-            role: "assistant",
-            content: "Sorry, I encountered an error. Please try again.",
-          },
-        ]);
-      } finally {
-        setIsLoading(false);
       }
+    } catch (error) {
+      console.error("Error sending message:", error);
+      setMessages((prev) => [
+        ...prev,
+        {
+          role: "assistant",
+          content: `Error: ${error.message || "Failed to process request"}`,
+        },
+      ]);
+    } finally {
+      setIsLoading(false);
+      // Reset sources after send
+      setAttachedFiles([]);
+      setUrls([]);
+      setUrlInput("");
+      setShowSources(false);
     }
-
-    // Optional: reset sources after send
-    setAttachedFiles([]);
-    setUrlInput("");
-    setShowSources(false);
   };
 
   const handleKeyDown = (event) => {
@@ -109,38 +142,6 @@ const ChatInterface = ({ onSend }) => {
     }
   };
 
-  const handlePersonalityChange = async () => {
-    if (!personality.trim() || isLoadingPersonality) return;
-    
-    setIsLoadingPersonality(true);
-    try {
-      const data = await generatePersonality({ 
-        character: personality.trim(),
-        conversationId: 1 
-      });
-      
-      // Personality is now set on the backend for this conversation
-      // Show confirmation message in the chat
-      const confirmationMessage = {
-        role: "system",
-        content: `Personality set to: ${personality}`,
-      };
-      setMessages((prev) => [...prev, confirmationMessage]);
-      
-      setPersonality(""); // Clear the input field
-    } catch (error) {
-      console.error("Error setting personality:", error);
-      const errorMessage = error.message || "Failed to set personality. Please try again.";
-      // Show error message in the chat
-      const errorMsg = {
-        role: "system",
-        content: `Error: ${errorMessage}`,
-      };
-      setMessages((prev) => [...prev, errorMsg]);
-    } finally {
-      setIsLoadingPersonality(false);
-    }
-  };
 
   const adjustTextareaHeight = () => {
     if (textareaRef.current) {
@@ -216,63 +217,10 @@ const ChatInterface = ({ onSend }) => {
     });
   };
 
-  const updatePersonalityCursorPosition = () => {
-    if (!personalityInputRef.current) return;
-
-    const inputEl = personalityInputRef.current;
-    const selectionStart = inputEl.selectionStart;
-    const textBeforeCursor = personality.substring(0, selectionStart);
-
-    const mirror = document.createElement('div');
-    const inputStyle = window.getComputedStyle(inputEl);
-    const stylesToCopy = [
-      'font', 'fontSize', 'fontFamily', 'fontWeight', 'fontStyle',
-      'letterSpacing', 'wordSpacing', 'textTransform', 'textIndent',
-      'whiteSpace', 'wordWrap', 'wordBreak', 'lineHeight',
-      'padding', 'border', 'boxSizing', 'width', 'margin'
-    ];
-    stylesToCopy.forEach(prop => {
-      mirror.style[prop] = inputStyle[prop];
-    });
-    mirror.style.width = `${inputEl.offsetWidth}px`;
-    mirror.style.position = 'absolute';
-    mirror.style.visibility = 'hidden';
-    mirror.style.top = '-9999px';
-    mirror.style.left = '-9999px';
-    mirror.style.whiteSpace = 'pre-wrap';
-    mirror.style.wordWrap = 'break-word';
-
-    const textNode = document.createTextNode(textBeforeCursor);
-    mirror.appendChild(textNode);
-
-    const cursorMarker = document.createElement('span');
-    cursorMarker.style.display = 'inline-block';
-    cursorMarker.style.width = '0';
-    cursorMarker.style.height = '1em';
-    mirror.appendChild(cursorMarker);
-
-    document.body.appendChild(mirror);
-
-    const markerRect = cursorMarker.getBoundingClientRect();
-    const mirrorRect = mirror.getBoundingClientRect();
-
-    document.body.removeChild(mirror);
-
-    setPersonalityCursorPosition({
-      top: Math.max(0, markerRect.top - mirrorRect.top),
-      left: Math.max(0, markerRect.left - mirrorRect.left),
-      visible: document.activeElement === inputEl
-    });
-  };
-
   useEffect(() => {
     adjustTextareaHeight();
     updateCursorPosition();
   }, [input]);
-
-  useEffect(() => {
-    updatePersonalityCursorPosition();
-  }, [personality]);
 
   const updateUrlCursorPosition = () => {
     if (!urlInputRef.current) return;
@@ -411,53 +359,6 @@ const ChatInterface = ({ onSend }) => {
     };
   }, [input]);
 
-  useEffect(() => {
-    const inputEl = personalityInputRef.current;
-    if (!inputEl) return;
-
-    const handleInput = () => {
-      requestAnimationFrame(() => {
-        setTimeout(updatePersonalityCursorPosition, 0);
-      });
-    };
-    const handleClick = () => {
-      requestAnimationFrame(() => {
-        setTimeout(updatePersonalityCursorPosition, 0);
-      });
-    };
-    const handleKey = () => {
-      requestAnimationFrame(() => {
-        setTimeout(updatePersonalityCursorPosition, 0);
-      });
-    };
-    const handleFocus = () => {
-      setPersonalityCursorPosition(prev => ({ ...prev, visible: true }));
-      updatePersonalityCursorPosition();
-    };
-    const handleBlur = () => {
-      setPersonalityCursorPosition(prev => ({ ...prev, visible: false }));
-    };
-
-    inputEl.addEventListener('input', handleInput);
-    inputEl.addEventListener('click', handleClick);
-    inputEl.addEventListener('keydown', handleKey);
-    inputEl.addEventListener('keyup', handleKey);
-    inputEl.addEventListener('focus', handleFocus);
-    inputEl.addEventListener('blur', handleBlur);
-
-    // Initial position
-    updatePersonalityCursorPosition();
-
-    return () => {
-      inputEl.removeEventListener('input', handleInput);
-      inputEl.removeEventListener('click', handleClick);
-      inputEl.removeEventListener('keydown', handleKey);
-      inputEl.removeEventListener('keyup', handleKey);
-      inputEl.removeEventListener('focus', handleFocus);
-      inputEl.removeEventListener('blur', handleBlur);
-    };
-  }, [personality]);
-
   return (
     <>
       <div className="messages-container">
@@ -493,11 +394,31 @@ const ChatInterface = ({ onSend }) => {
 
       {/* Sources panel ABOVE message box */}
       {showSources && (
-        <div className="sources-panel" style={{ marginTop: 8, marginBottom: 8, borderTop: "1px solid #2a2a2a", borderBottom: "1px solid #2a2a2a", padding: 8 }}>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", alignItems: "flex-start" }}>
+        <div className="sources-panel" style={{ marginTop: 8, marginBottom: 8, borderTop: "1px solid #2a2a2a", borderBottom: "1px solid #2a2a2a", padding: 12, backgroundColor: "#1a1a1a", borderRadius: 4 }}>
+          <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Add Context Sources</h3>
+                {(attachedFiles.length > 0 || urls.length > 0) && (
+                  <div style={{ fontSize: 11, color: "#888" }}>
+                    {attachedFiles.length} file(s), {urls.length} URL(s) • 
+                    Estimated context: ~{calculateContextTokens().toLocaleString()} tokens
+                    {urls.length > 0 && " (URLs will be processed server-side)"}
+                  </div>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowSources(false)}
+                style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: 18, padding: 0, width: 24, height: 24 }}
+                title="Close panel"
+              >
+                ×
+              </button>
+            </div>
             {/* File input */}
             <div>
-              <label style={{ display: "block", marginBottom: 4 }}>Attach files</label>
+              <label style={{ display: "block", marginBottom: 6, fontSize: 13 }}>Attach files (PDF, TXT, DOC, DOCX, MD, RTF)</label>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <button
                   type="button"
@@ -513,17 +434,139 @@ const ChatInterface = ({ onSend }) => {
               </div>
               {attachedFiles.length > 0 && (
                 <div style={{ marginTop: 4, fontSize: 12 }}>
+                  {Array.from(attachedFiles).map((file, idx) => {
+                    const fileSizeKB = (file.size / 1024).toFixed(1);
+                    // Rough estimate: assume 50% of file size is text, ~5 chars per word
+                    const estimatedTokens = Math.floor((file.size * 0.5) / 5);
+                    return (
+                      <div key={idx} style={{ 
+                        marginBottom: 4, 
+                        display: "flex", 
+                        alignItems: "center", 
+                        gap: 8,
+                        padding: 6,
+                        backgroundColor: "#0a0a0a",
+                        borderRadius: 4
+                      }}>
+                        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+                          <span style={{ fontWeight: 500 }}>{file.name}</span>
+                          <span style={{ fontSize: 11, color: "#888" }}>
+                            {fileSizeKB} KB • ~{estimatedTokens.toLocaleString()} tokens
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const newFiles = Array.from(attachedFiles).filter((_, i) => i !== idx);
+                            setAttachedFiles(newFiles);
+                          }}
+                          style={{ fontSize: 11, padding: "4px 8px", background: "#ef4444", color: "white", border: "none", borderRadius: 3, cursor: "pointer" }}
+                        >
+                          Remove
+                        </button>
+                      </div>
+                    );
+                  })}
                   <button
                     type="button"
                     onClick={() => setAttachedFiles([])}
-                    style={{ marginLeft: 8, fontSize: 12 }}
+                    style={{ marginTop: 4, fontSize: 11, background: "none", border: "none", color: "#888", cursor: "pointer", textDecoration: "underline" }}
                   >
-                    Clear
+                    Clear all files
                   </button>
                 </div>
               )}
             </div>
-            {/* URLs input removed */}
+            
+            {/* URL input */}
+            <div>
+              <label style={{ display: "block", marginBottom: 6, fontSize: 13 }}>Add website URLs</label>
+              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                <input
+                  type="text"
+                  value={urlInput}
+                  onChange={(e) => setUrlInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && urlInput.trim()) {
+                      e.preventDefault();
+                      const trimmed = urlInput.trim();
+                      // Basic URL validation
+                      if (trimmed && !urls.includes(trimmed)) {
+                        // Add http:// if no protocol is specified
+                        const urlToAdd = trimmed.startsWith('http://') || trimmed.startsWith('https://') 
+                          ? trimmed 
+                          : `https://${trimmed}`;
+                        setUrls([...urls, urlToAdd]);
+                        setUrlInput("");
+                      }
+                    }
+                  }}
+                  placeholder="Enter URL (e.g., example.com) and press Enter"
+                  style={{ flex: 1, padding: 6, background: "#0a0a0a", color: "#fff", border: "1px solid #2a2a2a", borderRadius: 4, fontSize: 13 }}
+                />
+                <button
+                  type="button"
+                  className="send-button"
+                  onClick={() => {
+                    if (urlInput.trim()) {
+                      const trimmed = urlInput.trim();
+                      if (trimmed && !urls.includes(trimmed)) {
+                        const urlToAdd = trimmed.startsWith('http://') || trimmed.startsWith('https://') 
+                          ? trimmed 
+                          : `https://${trimmed}`;
+                        setUrls([...urls, urlToAdd]);
+                        setUrlInput("");
+                      }
+                    }
+                  }}
+                  disabled={!urlInput.trim()}
+                  title="Add URL"
+                >
+                  Add
+                </button>
+              </div>
+              {urls.length > 0 && (
+                <div style={{ marginTop: 4, fontSize: 12 }}>
+                  {urls.map((url, idx) => (
+                    <div key={idx} style={{ 
+                      marginBottom: 4, 
+                      display: "flex", 
+                      alignItems: "center", 
+                      gap: 8,
+                      padding: 6,
+                      backgroundColor: "#0a0a0a",
+                      borderRadius: 4
+                    }}>
+                      <div style={{ flex: 1 }}>
+                        <span style={{ wordBreak: "break-all", display: "block" }}>{url}</span>
+                        <span style={{ fontSize: 11, color: "#888" }}>
+                          Will be processed when message is sent
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUrls(urls.filter((_, i) => i !== idx));
+                        }}
+                        style={{ fontSize: 11, padding: "4px 8px", background: "#ef4444", color: "white", border: "none", borderRadius: 3, cursor: "pointer" }}
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  ))}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUrls([]);
+                      setUrlInput("");
+                    }}
+                    style={{ marginTop: 4, fontSize: 11, background: "none", border: "none", color: "#888", cursor: "pointer", textDecoration: "underline" }}
+                  >
+                    Clear all URLs
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -558,16 +601,47 @@ const ChatInterface = ({ onSend }) => {
               <button
                 type="button"
                 className="send-button"
-                aria-label="Add files or URLs"
-                title="Add files or URLs"
+                aria-label="Attach files"
+                title="Attach files"
                 onClick={() => {
-                  // Open native file picker and reveal sources panel
-                  setShowSources(true);
+                  // Open file picker directly
                   hiddenFileInputRef.current?.click();
                 }}
                 disabled={isLoading}
-                style={{ display: "inline-flex", alignItems: "center", justifyContent: "center" }}
+                style={{ 
+                  display: "inline-flex", 
+                  alignItems: "center", 
+                  justifyContent: "center",
+                  position: "relative"
+                }}
               >
+                {(attachedFiles.length > 0 || urls.length > 0) && (
+                  <span 
+                    onClick={(e) => {
+                      e.stopPropagation(); // Don't open file picker
+                      setShowSources(!showSources); // Toggle sources panel to view/manage
+                    }}
+                    style={{
+                      position: "absolute",
+                      top: -4,
+                      right: -4,
+                      backgroundColor: "#ef4444",
+                      color: "white",
+                      borderRadius: "50%",
+                      width: 18,
+                      height: 18,
+                      fontSize: 10,
+                      display: "flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      fontWeight: "bold",
+                      cursor: "pointer"
+                    }}
+                    title="Click to view/manage attached sources"
+                  >
+                    {attachedFiles.length + urls.length}
+                  </span>
+                )}
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                   <path d="M16.5 6.5l-7.78 7.78a3 3 0 104.24 4.24l7.07-7.07a5 5 0 10-7.07-7.07L6.4 8.85" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
@@ -598,57 +672,128 @@ const ChatInterface = ({ onSend }) => {
             ref={hiddenFileInputRef}
             type="file"
             multiple
+            accept=".pdf,.txt,.doc,.docx,.md,.rtf"
             style={{ display: "none" }}
             onChange={(e) => {
               const files = Array.from(e.target.files ?? []);
               if (files.length) {
-                setAttachedFiles(files);
-                setShowSources(true);
+                // Append new files to existing ones
+                setAttachedFiles(prev => [...prev, ...files]);
+                setShowSources(true); // Show panel so user can see attached files
               }
+              // Reset the input so the same file can be selected again if needed
+              e.target.value = '';
             }}
           />
 
         </div>
       </div>
 
-      {/* Website URL box removed as requested */}
-      <div className="personality-container">
+      {/* Website URL context box */}
+      <div className="personality-container" style={{ 
+        position: 'absolute',
+        top: 'calc(60vh + 80px)', /* Position below chat input */
+        left: 0,
+        right: 0,
+        width: '100%'
+      }}>
         <div className="personality-section">
-          <label className="personality-label">Character Personality:</label>
-          <div className="textarea-wrapper" ref={personalityWrapperRef}>
+          <label className="personality-label">Website URL Context:</label>
+          <div style={{ display: "flex", gap: 8, alignItems: "center", width: "100%" }}>
             <input
-              ref={personalityInputRef}
               type="text"
               className="personality-input"
-              value={personality}
-              onChange={(e) => setPersonality(e.target.value)}
+              value={urlInput}
+              onChange={(e) => setUrlInput(e.target.value)}
               onKeyDown={(e) => {
-                if (e.key === "Enter" && personality.trim()) {
-                  handlePersonalityChange();
+                if (e.key === "Enter" && urlInput.trim()) {
+                  e.preventDefault();
+                  const trimmed = urlInput.trim();
+                  if (trimmed && !urls.includes(trimmed)) {
+                    // Add http:// if no protocol is specified
+                    const urlToAdd = trimmed.startsWith('http://') || trimmed.startsWith('https://') 
+                      ? trimmed 
+                      : `https://${trimmed}`;
+                    setUrls([...urls, urlToAdd]);
+                    setUrlInput("");
+                  }
                 }
               }}
-              placeholder="Enter character name (e.g., 'Trevor from GTA V')"
-              disabled={isLoadingPersonality}
+              placeholder="Enter website URL (e.g., example.com or https://example.com)"
+              style={{ flex: 1 }}
             />
-            {personalityCursorPosition.visible && (
-              <span
-                ref={personalityCursorRef}
-                className="terminal-cursor"
-                style={{
-                  top: `${personalityCursorPosition.top}px`,
-                  left: `${personalityCursorPosition.left}px`,
-                }}
-              />
-            )}
+            <button
+              className="personality-button"
+              onClick={() => {
+                if (urlInput.trim()) {
+                  const trimmed = urlInput.trim();
+                  if (trimmed && !urls.includes(trimmed)) {
+                    const urlToAdd = trimmed.startsWith('http://') || trimmed.startsWith('https://') 
+                      ? trimmed 
+                      : `https://${trimmed}`;
+                    setUrls([...urls, urlToAdd]);
+                    setUrlInput("");
+                  }
+                }
+              }}
+              disabled={!urlInput.trim()}
+            >
+              Add URL
+            </button>
           </div>
-          <button
-            className="personality-button"
-            onClick={handlePersonalityChange}
-            disabled={!personality.trim() || isLoadingPersonality}
-          >
-            {isLoadingPersonality ? "Loading..." : "Set"}
-          </button>
-          {/* Profile picture display removed */}
+          {urls.length > 0 && (
+            <div style={{ marginTop: 8, fontSize: 12 }}>
+              <div style={{ marginBottom: 4, color: "#888" }}>Added URLs ({urls.length}):</div>
+              {urls.map((url, idx) => (
+                <div key={idx} style={{ 
+                  marginBottom: 4, 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: 8,
+                  padding: 4,
+                  backgroundColor: "#1a1a1a",
+                  borderRadius: 4
+                }}>
+                  <span style={{ flex: 1, wordBreak: "break-all", fontSize: 12 }}>{url}</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setUrls(urls.filter((_, i) => i !== idx));
+                    }}
+                    style={{ 
+                      fontSize: 11, 
+                      padding: "2px 6px",
+                      background: "#ef4444",
+                      color: "white",
+                      border: "none",
+                      borderRadius: 3,
+                      cursor: "pointer"
+                    }}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                onClick={() => {
+                  setUrls([]);
+                  setUrlInput("");
+                }}
+                style={{ 
+                  marginTop: 4, 
+                  fontSize: 11,
+                  background: "none",
+                  border: "none",
+                  color: "#888",
+                  cursor: "pointer",
+                  textDecoration: "underline"
+                }}
+              >
+                Clear all URLs
+              </button>
+            </div>
+          )}
         </div>
       </div>
       {/* Footer spacing not needed anymore */}

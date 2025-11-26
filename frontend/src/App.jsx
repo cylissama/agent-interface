@@ -7,7 +7,12 @@ import "./App.css";
 const App = () => {
   const handleSend = async (message) => {
     try {
-      const response = await sendMessage({ conversationId: 1, content: message.content });
+      const response = await sendMessage({ 
+        conversationId: 1, 
+        content: message.content,
+        documentIds: message.documentIds || [],
+        urls: message.urls || []
+      });
       return response;
     } catch (error) {
       console.error("Failed to send message", error);

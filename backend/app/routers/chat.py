@@ -1,6 +1,7 @@
 from datetime import datetime
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from .. import schemas
@@ -33,11 +34,24 @@ async def get_conversation(
 
 @router.post("/completion", response_model=schemas.Message)
 async def create_completion(
+    request: Request,
     message: schemas.MessageCreate,
+    document_ids: Optional[List[int]] = Query(None),
+    urls: Optional[List[str]] = Query(None),
     db: Session = Depends(get_db),
 ):
-    """Generate an LLM response to user input."""
-    from ..models import Message, Conversation
+    """Generate an LLM response with optional document/URL context."""
+    from ..models import Message, Conversation, Document
+    from pathlib import Path
+    
+    # Get URLs from raw query params (most reliable)
+    raw_urls = request.query_params.getlist('urls')
+    if raw_urls:
+        urls = raw_urls
+    elif urls and isinstance(urls, str):
+        urls = [urls]
+    else:
+        urls = urls or []
     
     # Get system info to determine recommended model
     from ..services import system_service
@@ -51,16 +65,15 @@ async def create_completion(
             id=message.conversation_id,
             title=f"Conversation {message.conversation_id}",
             created_at=datetime.now(),
-            model_name=recommended_model,  # Set recommended model on creation
+            model_name=recommended_model,
         )
         db.add(conversation)
         db.commit()
     elif not conversation.model_name:
-        # If conversation exists but no model set, update it
         conversation.model_name = recommended_model
         db.commit()
     
-    # Get conversation history for context
+    # Get conversation history
     conversation_messages = (
         db.query(Message)
         .filter(Message.conversation_id == message.conversation_id)
@@ -68,29 +81,49 @@ async def create_completion(
         .all()
     )
     
-    # Build conversation history for the LLM
-    history = []
-    for msg in conversation_messages:
-        history.append({"role": msg.role, "content": msg.content})
-    
-    # Add the current user message to history
+    history = [{"role": msg.role, "content": msg.content} for msg in conversation_messages]
     history.append({"role": message.role, "content": message.content})
     
-    # Get personality prompt if set
-    personality_prompt = conversation.personality_prompt if conversation else None
+    # Build context using ContextManager
+    from ..services.context_manager import ContextManager
+    from ..utils.web_scraper import extract_text_from_url
+    
+    context_manager = ContextManager(max_tokens=4000)
+    
+    # Add documents to context
+    if document_ids:
+        documents = db.query(Document).filter(Document.id.in_(document_ids)).all()
+        for doc in documents:
+            doc_path = Path(doc.path)
+            if doc_path.exists():
+                from ..utils.file_handlers import extract_text
+                text = extract_text(doc_path)
+                if text and len(text.strip()) > 0:
+                    context_manager.add_source(content=text, source_type="file", source_name=doc.name)
+    
+    # Add URLs to context
+    if urls:
+        for url in urls:
+            text = extract_text_from_url(url, timeout=30.0)
+            if text and len(text.strip()) > 50:
+                context_manager.add_source(content=text, source_type="url", source_name=url)
+    
+    # Format context for LLM
+    context_text, _ = context_manager.format_context()
     
     # Use conversation's model or fall back to recommended
     model_name = conversation.model_name or recommended_model
     
-    # Generate response using Ollama
+    # Generate response
+    context_parts = [context_text] if context_text else None
     assistant_response = await llm_service.generate_response(
         prompt=message.content,
-        conversation_history=history[:-1],  # Exclude current message from history
-        personality_prompt=personality_prompt,
+        context=context_parts,
+        conversation_history=history[:-1],
         model_name=model_name,
     )
     
-    # Save user message to database
+    # Save messages to database
     user_message = Message(
         conversation_id=message.conversation_id,
         role=message.role,
@@ -99,7 +132,6 @@ async def create_completion(
     )
     db.add(user_message)
     
-    # Save assistant response to database
     assistant_message = Message(
         conversation_id=message.conversation_id,
         role="assistant",

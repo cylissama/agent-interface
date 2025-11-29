@@ -23,14 +23,12 @@ const VisualizationModal = ({ isOpen, onClose }) => {
       const data = await response.json();
       setStats(data);
       
-      // Create source stats for chart
-      if (data.sources && data.sources.length > 0) {
-        // Fetch detailed stats per source
-        const sourceData = data.sources.map((source, idx) => ({
-          name: source.length > 20 ? source.substring(0, 20) + "..." : source,
-          fullName: source,
-          chunks: Math.floor(data.total_chunks / data.sources.length) + (idx === 0 ? data.total_chunks % data.sources.length : 0),
-          sentiment: ["positive", "neutral", "negative"][idx % 3], // Simulated sentiment
+      // Use real source_details from backend
+      if (data.source_details && data.source_details.length > 0) {
+        const sourceData = data.source_details.map((source) => ({
+          name: source.name.length > 25 ? source.name.substring(0, 25) + "..." : source.name,
+          fullName: source.name,
+          chunks: source.chunks,
         }));
         setSourceStats(sourceData);
       } else {
@@ -46,15 +44,6 @@ const VisualizationModal = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   const maxChunks = Math.max(...sourceStats.map(s => s.chunks), 1);
-
-  const getSentimentColor = (sentiment) => {
-    switch (sentiment) {
-      case "positive": return "#00ff00";
-      case "neutral": return "#ffff00";
-      case "negative": return "#ff6600";
-      default: return "#00ff00";
-    }
-  };
 
   return (
     <div className="viz-modal-overlay" onClick={onClose}>
@@ -115,35 +104,20 @@ const VisualizationModal = ({ isOpen, onClose }) => {
                             className="bar-fill"
                             style={{ 
                               width: `${(source.chunks / maxChunks) * 100}%`,
-                              backgroundColor: getSentimentColor(source.sentiment)
+                              backgroundColor: "#00ff00"
                             }}
                           />
                           <span className="bar-value">{source.chunks}</span>
                         </div>
-                        <span 
-                          className="sentiment-badge"
-                          style={{ color: getSentimentColor(source.sentiment) }}
-                        >
-                          [{source.sentiment.toUpperCase()}]
-                        </span>
                       </div>
                     ))}
                   </div>
                 )}
               </div>
               
-              <div className="viz-legend">
-                <span className="legend-item">
-                  <span className="legend-color" style={{backgroundColor: "#00ff00"}}></span>
-                  Positive
-                </span>
-                <span className="legend-item">
-                  <span className="legend-color" style={{backgroundColor: "#ffff00"}}></span>
-                  Neutral
-                </span>
-                <span className="legend-item">
-                  <span className="legend-color" style={{backgroundColor: "#ff6600"}}></span>
-                  Negative
+              <div className="viz-info">
+                <span className="viz-hint">
+                  Data retrieved from ChromaDB vector store
                 </span>
               </div>
             </>
@@ -155,4 +129,3 @@ const VisualizationModal = ({ isOpen, onClose }) => {
 };
 
 export default VisualizationModal;
-

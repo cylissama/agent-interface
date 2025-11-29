@@ -800,32 +800,10 @@ body {
   text-shadow: 0 0 2px #00ff00;
 }
 
-.sentiment-badge {
-  font-size: 9px;
-  width: 70px;
-  text-align: right;
-}
-
-.viz-legend {
-  display: flex;
-  gap: 1.5rem;
-  justify-content: center;
+.viz-info {
+  text-align: center;
   padding-top: 1rem;
   border-top: 1px dashed #004400;
   margin-top: 1rem;
-}
-
-.legend-item {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  color: #00cc00;
-  font-size: 11px;
-}
-
-.legend-color {
-  width: 12px;
-  height: 12px;
-  border: 1px solid #00ff00;
 }
 

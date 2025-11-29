@@ -326,21 +326,29 @@ class VectorStore:
         """Get statistics about the vector store."""
         count = self.collection.count()
         
-        # Get unique sources
-        sources = set()
+        # Get per-source chunk counts
+        source_counts = {}
         if count > 0:
             try:
                 results = self.collection.get(include=["metadatas"])
                 for meta in results["metadatas"]:
                     if meta and "source_name" in meta:
-                        sources.add(meta["source_name"])
+                        source_name = meta["source_name"]
+                        source_counts[source_name] = source_counts.get(source_name, 0) + 1
             except Exception:
                 pass
         
+        # Convert to list format with chunk counts
+        source_details = [
+            {"name": name, "chunks": chunks}
+            for name, chunks in sorted(source_counts.items(), key=lambda x: -x[1])  # Sort by chunks desc
+        ][:20]  # Limit to top 20
+        
         return {
             "total_chunks": count,
-            "unique_sources": len(sources),
-            "sources": list(sources)[:20],  # Limit to first 20
+            "unique_sources": len(source_counts),
+            "sources": list(source_counts.keys())[:20],
+            "source_details": source_details,  # New: includes chunk counts per source
             "embedding_model": self.embedding_model,
             "persist_dir": self.persist_dir,
         }

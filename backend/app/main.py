@@ -6,7 +6,7 @@ from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 
 from .database import Base, engine
-from .routers import chat, documents, batch, system
+from .routers import chat, documents, batch, system, vectors
 
 
 @asynccontextmanager
@@ -64,3 +64,4 @@ app.include_router(documents.router, prefix="/documents", tags=["documents"])
 app.include_router(chat.router, prefix="/chat", tags=["chat"])
 app.include_router(batch.router, prefix="/batch", tags=["batch"])
 app.include_router(system.router, prefix="/system", tags=["system"])
+app.include_router(vectors.router, prefix="/vectors", tags=["vectors"])

@@ -19,6 +19,39 @@ if (-not (Get-Command npm -ErrorAction SilentlyContinue)) {
 }
 Write-Host "[OK] Prerequisites OK" -ForegroundColor Green
 
+# Check Ollama and pull required models
+Write-Host "`n[1.5/4] Checking Ollama models..." -ForegroundColor Yellow
+if (Get-Command ollama -ErrorAction SilentlyContinue) {
+    # Check if Ollama is running
+    try {
+        $ollamaCheck = Invoke-WebRequest -Uri "http://localhost:11434/api/tags" -TimeoutSec 3 -ErrorAction Stop
+        Write-Host "[OK] Ollama is running" -ForegroundColor Green
+        
+        # Pull required models if not present
+        $models = (ConvertFrom-Json $ollamaCheck.Content).models.name
+        
+        if ($models -notcontains "llama3.2:latest" -and $models -notcontains "llama3.2") {
+            Write-Host "Pulling llama3.2 model (this may take a few minutes)..." -ForegroundColor DarkYellow
+            ollama pull llama3.2
+        } else {
+            Write-Host "[OK] llama3.2 model ready" -ForegroundColor Green
+        }
+        
+        if ($models -notcontains "nomic-embed-text:latest" -and $models -notcontains "nomic-embed-text") {
+            Write-Host "Pulling nomic-embed-text model (for vector embeddings)..." -ForegroundColor DarkYellow
+            ollama pull nomic-embed-text
+        } else {
+            Write-Host "[OK] nomic-embed-text model ready" -ForegroundColor Green
+        }
+    } catch {
+        Write-Host "[WARNING] Ollama not running. Start it with: ollama serve" -ForegroundColor Yellow
+        Write-Host "         Vector search features will not work without Ollama." -ForegroundColor DarkGray
+    }
+} else {
+    Write-Host "[WARNING] Ollama not installed. Install from https://ollama.ai" -ForegroundColor Yellow
+    Write-Host "         The app will run but LLM features won't work." -ForegroundColor DarkGray
+}
+
 # Backend setup - using root-level venv
 Write-Host "`n[2/4] Setting up backend..." -ForegroundColor Yellow
 

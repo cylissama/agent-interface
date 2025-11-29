@@ -26,13 +26,17 @@ async def generate_response(
     
     # Add system message with context if available
     if context_text:
-        system_content = f"""You are a helpful assistant. The user has uploaded documents and/or URLs. The full text content has been extracted and is provided below. You have direct access to this content - it is not an attachment you cannot read, it is the actual extracted text.
+        system_content = f"""You are a helpful assistant with access to the following content that was just retrieved for this conversation:
 
 {context_text}
 
-Answer the user's questions using the document content above. Be specific and quote from the documents when relevant."""
+IMPORTANT INSTRUCTIONS:
+- Answer directly using the content above. Do NOT say you don't have access to real-time data - you DO have it above.
+- Be concise and direct. Skip unnecessary preamble or disclaimers.
+- If the content contains the answer, state it confidently without caveats.
+- Only mention limitations if the content truly doesn't contain what's needed."""
     else:
-        system_content = "You are a helpful assistant."
+        system_content = "You are a helpful assistant. Be concise and direct in your responses."
     
     messages.append({"role": "system", "content": system_content})
     
@@ -48,11 +52,19 @@ Answer the user's questions using the document content above. Be specific and qu
     # Add the current user prompt
     messages.append({"role": "user", "content": prompt})
     
-    # Call Ollama API
+    # Call Ollama API with optimized settings
     async with httpx.AsyncClient(timeout=120.0) as client:
         response = await client.post(
             f"{settings.ollama_base_url}/api/chat",
-            json={"model": model, "messages": messages, "stream": False},
+            json={
+                "model": model,
+                "messages": messages,
+                "stream": False,
+                "options": {
+                    "num_ctx": 4096,  # Limit context window for faster processing
+                    "num_predict": 512,  # Limit response length for faster generation
+                },
+            },
         )
         
         if response.status_code != 200:

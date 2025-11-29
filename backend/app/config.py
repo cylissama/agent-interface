@@ -27,12 +27,11 @@ class Settings(BaseSettings):
     ollama_base_url: str = "http://localhost:11434"
     ollama_model: str = "llama3.2:1b"  # Default to faster 1B model (can be overridden in .env)
     
-    # GROQ Minstrel API settings
-    groq_api_key: str | None = None
-    groq_base_url: str = "https://api.groq.com"  # Default GROQ API base URL (uses /openai/v1/ endpoints)
-    groq_model: str = "llama-3.1-8b-instant"  # GROQ model to use for Minstrel (current model, can be overridden in .env)
-
-
+    # Embedding settings (for vector store)
+    embedding_model: str = "nomic-embed-text"  # Ollama embedding model
+    chroma_persist_dir: str = "./chroma_db"  # ChromaDB storage directory
+    
+    
 def get_settings() -> Settings:
     """Return cached settings instance."""
     return Settings()

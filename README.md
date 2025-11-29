@@ -17,10 +17,12 @@ A terminal-style chat interface powered by Ollama LLM.
    ollama serve
    ```
 
-2. **Pull a model** (optional, defaults to llama3.2):
+2. **Pull models** (optional, defaults to llama3.2):
    ```bash
    ollama pull llama3.2
+   ollama pull nomic-embed-text
    ```
+   Note: `nomic-embed-text` is used for vector embeddings (semantic search).
 
 3. **Configure settings** (optional):
    Create a `.env` file in the project root:
@@ -74,7 +76,7 @@ Override these in a `.env` file or environment variables.
 
 ## Overview of All Features
 
-# routers (contains batch, chat, documents, system)
+# routers (batch, chat, documents, system, vectors)
 
 - batch: process multiple prompts in a single request with shared document/URL context. Useful for bulk Q&A, running multiple questions against the same sources.
 
@@ -84,6 +86,12 @@ Override these in a `.env` file or environment variables.
 
 - system: gets system information to determine if user has gpu or not (if user only has cpu uses a lighter ollama model)
 
+- vectors: semantic search endpoints - index documents/URLs into ChromaDB, search by meaning not keywords
+   RAG is ON by default (use_rag=true)
+   Searches top 3 most relevant chunks
+   Only includes chunks with >30% similarity score
+   Shows source name with relevance percentage in context
+
 # services (context_manager, llm_service, system_service, vector_store)
 
 - context_manager: adds all needed context to response. Fetches documents from database and adds urls/files to context.
@@ -92,7 +100,7 @@ Override these in a `.env` file or environment variables.
 
 - system_service: detects the system gpu or cpu
 
-- vector_store: under construction
+- vector_store: ChromaDB-based vector storage with Ollama embeddings. Stores document chunks as vectors for semantic search.
 
 # utils (file_handlers, web_scraper)
 

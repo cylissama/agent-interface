@@ -16,7 +16,6 @@ async def get_conversation(
     conversation_id: int,
     db: Session = Depends(get_db),
 ):
-    """Get conversation details including character image."""
     from ..models import Conversation
     
     conversation = db.query(Conversation).filter(Conversation.id == conversation_id).first()
@@ -28,7 +27,6 @@ async def get_conversation(
         title=conversation.title,
         created_at=conversation.created_at,
         messages=[],
-        character_image_url=conversation.character_image_url,
     )
 
 
@@ -38,9 +36,10 @@ async def create_completion(
     message: schemas.MessageCreate,
     document_ids: Optional[List[int]] = Query(None),
     urls: Optional[List[str]] = Query(None),
+    use_rag: bool = Query(True, description="Auto-search vector store for relevant context"),
     db: Session = Depends(get_db),
 ):
-    """Generate an LLM response with optional document/URL context."""
+    """Generate an LLM response with optional document/URL context and automatic RAG search."""
     from ..models import Message, Conversation, Document
     from pathlib import Path
     
@@ -107,6 +106,28 @@ async def create_completion(
             text = extract_text_from_url(url, timeout=30.0)
             if text and len(text.strip()) > 50:
                 context_manager.add_source(content=text, source_type="url", source_name=url)
+    
+    # Auto-search vector store for relevant context (RAG)
+    if use_rag:
+        try:
+            from ..services.vector_store import get_vector_store
+            vector_store = get_vector_store()
+            
+            # Only search if vector store has content
+            stats = vector_store.get_stats()
+            if stats["total_chunks"] > 0:
+                search_results = vector_store.search(query=message.content, n_results=3)
+                for result in search_results:
+                    # Only include results with decent similarity
+                    if result["similarity"] > 0.3:
+                        source_name = result["metadata"].get("source_name", "vector-search")
+                        context_manager.add_source(
+                            content=result["content"],
+                            source_type="vector-search",
+                            source_name=f"{source_name} (relevance: {result['similarity']:.0%})"
+                        )
+        except Exception:
+            pass  # Vector store not available, continue without RAG
     
     # Format context for LLM
     context_text, _ = context_manager.format_context()

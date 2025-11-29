@@ -23,6 +23,39 @@ if ! command -v npm &> /dev/null; then
 fi
 echo "✓ Prerequisites OK"
 
+# Check Ollama and pull required models
+echo ""
+echo "[1.5/4] Checking Ollama models..."
+if command -v ollama &> /dev/null; then
+    # Check if Ollama is running
+    if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
+        echo "✓ Ollama is running"
+        
+        # Pull required models if not present
+        MODELS=$(curl -s http://localhost:11434/api/tags | grep -o '"name":"[^"]*"' | cut -d'"' -f4)
+        
+        if ! echo "$MODELS" | grep -q "llama3.2"; then
+            echo "Pulling llama3.2 model (this may take a few minutes)..."
+            ollama pull llama3.2
+        else
+            echo "✓ llama3.2 model ready"
+        fi
+        
+        if ! echo "$MODELS" | grep -q "nomic-embed-text"; then
+            echo "Pulling nomic-embed-text model (for vector embeddings)..."
+            ollama pull nomic-embed-text
+        else
+            echo "✓ nomic-embed-text model ready"
+        fi
+    else
+        echo "⚠️  Ollama not running. Start it with: ollama serve"
+        echo "   Vector search features will not work without Ollama."
+    fi
+else
+    echo "⚠️  Ollama not installed. Install from https://ollama.ai"
+    echo "   The app will run but LLM features won't work."
+fi
+
 # Backend setup - using root-level venv
 echo ""
 echo "[2/4] Setting up backend..."

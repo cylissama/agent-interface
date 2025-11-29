@@ -260,9 +260,14 @@ const ChatInterface = ({ onSend }) => {
     const mirrorRect = mirror.getBoundingClientRect();
     document.body.removeChild(mirror);
 
+    // Get the padding-left to ensure cursor starts at text position
+    const paddingLeft = parseFloat(inputStyle.paddingLeft) || 8;
+    const borderLeft = parseFloat(inputStyle.borderLeftWidth) || 2;
+    const calculatedLeft = markerRect.left - mirrorRect.left;
+    
     setUrlCursorPosition({
       top: Math.max(0, markerRect.top - mirrorRect.top),
-      left: Math.max(0, markerRect.left - mirrorRect.left),
+      left: Math.max(paddingLeft + borderLeft, calculatedLeft),
       visible: document.activeElement === inputEl
     });
   };
@@ -623,11 +628,11 @@ const ChatInterface = ({ onSend }) => {
                     }}
                     style={{
                       position: "absolute",
-                      top: -4,
-                      right: -4,
-                      backgroundColor: "#ef4444",
-                      color: "white",
-                      borderRadius: "50%",
+                      top: -6,
+                      right: -6,
+                      backgroundColor: "#00ff00",
+                      color: "#000000",
+                      border: "1px solid #000000",
                       width: 18,
                       height: 18,
                       fontSize: 10,
@@ -635,7 +640,8 @@ const ChatInterface = ({ onSend }) => {
                       alignItems: "center",
                       justifyContent: "center",
                       fontWeight: "bold",
-                      cursor: "pointer"
+                      cursor: "pointer",
+                      fontFamily: "'Courier New', Courier, monospace"
                     }}
                     title="Click to view/manage attached sources"
                   >
@@ -700,28 +706,39 @@ const ChatInterface = ({ onSend }) => {
         <div className="personality-section">
           <label className="personality-label">Website URL Context:</label>
           <div style={{ display: "flex", gap: 8, alignItems: "center", width: "100%" }}>
-            <input
-              type="text"
-              className="personality-input"
-              value={urlInput}
-              onChange={(e) => setUrlInput(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter" && urlInput.trim()) {
-                  e.preventDefault();
-                  const trimmed = urlInput.trim();
-                  if (trimmed && !urls.includes(trimmed)) {
-                    // Add http:// if no protocol is specified
-                    const urlToAdd = trimmed.startsWith('http://') || trimmed.startsWith('https://') 
-                      ? trimmed 
-                      : `https://${trimmed}`;
-                    setUrls([...urls, urlToAdd]);
-                    setUrlInput("");
+            <div className="url-input-wrapper" ref={urlWrapperRef}>
+              <input
+                ref={urlInputRef}
+                type="text"
+                className="personality-input"
+                value={urlInput}
+                onChange={(e) => setUrlInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" && urlInput.trim()) {
+                    e.preventDefault();
+                    const trimmed = urlInput.trim();
+                    if (trimmed && !urls.includes(trimmed)) {
+                      // Add http:// if no protocol is specified
+                      const urlToAdd = trimmed.startsWith('http://') || trimmed.startsWith('https://') 
+                        ? trimmed 
+                        : `https://${trimmed}`;
+                      setUrls([...urls, urlToAdd]);
+                      setUrlInput("");
+                    }
                   }
-                }
-              }}
-              placeholder="Enter website URL (e.g., example.com or https://example.com)"
-              style={{ flex: 1 }}
-            />
+                }}
+                placeholder="Enter website URL (e.g., example.com or https://example.com)"
+              />
+              {urlCursorPosition.visible && (
+                <span
+                  ref={urlCursorRef}
+                  className="url-terminal-cursor"
+                  style={{
+                    left: `${urlCursorPosition.left}px`,
+                  }}
+                />
+              )}
+            </div>
             <button
               className="personality-button"
               onClick={() => {
@@ -742,19 +759,20 @@ const ChatInterface = ({ onSend }) => {
             </button>
           </div>
           {urls.length > 0 && (
-            <div style={{ marginTop: 8, fontSize: 12 }}>
-              <div style={{ marginBottom: 4, color: "#888" }}>Added URLs ({urls.length}):</div>
+            <div style={{ marginTop: 8, fontSize: 12, fontFamily: "'Courier New', Courier, monospace" }}>
+              <div style={{ marginBottom: 4, color: "#00cc00" }}>[ADDED URLs: {urls.length}]</div>
               {urls.map((url, idx) => (
                 <div key={idx} style={{ 
                   marginBottom: 4, 
                   display: "flex", 
                   alignItems: "center", 
                   gap: 8,
-                  padding: 4,
-                  backgroundColor: "#1a1a1a",
-                  borderRadius: 4
+                  padding: "4px 8px",
+                  backgroundColor: "#000000",
+                  border: "1px solid #004400",
+                  borderLeft: "2px solid #00ff00"
                 }}>
-                  <span style={{ flex: 1, wordBreak: "break-all", fontSize: 12 }}>{url}</span>
+                  <span style={{ flex: 1, wordBreak: "break-all", fontSize: 12, color: "#00ff00" }}>{url}</span>
                   <button
                     type="button"
                     onClick={() => {
@@ -762,15 +780,17 @@ const ChatInterface = ({ onSend }) => {
                     }}
                     style={{ 
                       fontSize: 11, 
-                      padding: "2px 6px",
-                      background: "#ef4444",
-                      color: "white",
-                      border: "none",
-                      borderRadius: 3,
-                      cursor: "pointer"
+                      padding: "2px 8px",
+                      background: "#000000",
+                      color: "#00ff00",
+                      border: "1px solid #00ff00",
+                      cursor: "pointer",
+                      fontFamily: "'Courier New', Courier, monospace"
                     }}
+                    onMouseOver={(e) => { e.target.style.background = "#00ff00"; e.target.style.color = "#000000"; }}
+                    onMouseOut={(e) => { e.target.style.background = "#000000"; e.target.style.color = "#00ff00"; }}
                   >
-                    Remove
+                    [X]
                   </button>
                 </div>
               ))}
@@ -785,12 +805,14 @@ const ChatInterface = ({ onSend }) => {
                   fontSize: 11,
                   background: "none",
                   border: "none",
-                  color: "#888",
+                  color: "#00cc00",
                   cursor: "pointer",
-                  textDecoration: "underline"
+                  fontFamily: "'Courier New', Courier, monospace"
                 }}
+                onMouseOver={(e) => { e.target.style.color = "#00ff00"; }}
+                onMouseOut={(e) => { e.target.style.color = "#00cc00"; }}
               >
-                Clear all URLs
+                [CLEAR ALL]
               </button>
             </div>
           )}

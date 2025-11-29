@@ -1,10 +1,13 @@
 import { useState } from "react";
 
 import ChatInterface from "./components/ChatInterface.jsx";
+import VisualizationModal from "./components/VisualizationModal.jsx";
 import { sendMessage } from "./services/api.js";
 import "./App.css";
 
 const App = () => {
+  const [showViz, setShowViz] = useState(false);
+
   const handleSend = async (message) => {
     try {
       const response = await sendMessage({ 
@@ -23,6 +26,13 @@ const App = () => {
   return (
     <div className="app-container">
       <div className="terminal-header">
+        <button 
+          className="viz-button" 
+          onClick={() => setShowViz(true)}
+          title="View Analytics"
+        >
+          [STATS]
+        </button>
         <pre className="terminal-title">{`   ___________ __ __  ___________
   / ____/ ___// // / / ____/ ___/
  / /    \\__ \\/ // /_/___ \\/ __ \\ 
@@ -32,6 +42,7 @@ const App = () => {
       <div className="chat-container">
         <ChatInterface onSend={handleSend} />
       </div>
+      <VisualizationModal isOpen={showViz} onClose={() => setShowViz(false)} />
     </div>
   );
 };

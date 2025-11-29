@@ -49,7 +49,11 @@ def extract_text_from_url(url: str, timeout: float = 30.0) -> Optional[str]:
         import trafilatura
         extracted = trafilatura.extract(html_content, include_comments=False, include_tables=True)
         if extracted and len(extracted.strip()) > 100:
-            return extracted.strip()
+            text = extracted.strip()
+            # Limit content to avoid slow LLM processing
+            if len(text) > 3000:
+                text = text[:3000] + "\n\n[Content truncated for brevity]"
+            return text
     except Exception:
         pass
     
@@ -84,8 +88,9 @@ def extract_text_from_url(url: str, timeout: float = 30.0) -> Optional[str]:
         text = text.strip()
         
         if text and len(text) > 50:
-            return text
-        elif text and len(text) > 10:
+            # Limit content to avoid slow LLM processing
+            if len(text) > 3000:
+                text = text[:3000] + "\n\n[Content truncated for brevity]"
             return text
     except Exception:
         pass

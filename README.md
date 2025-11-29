@@ -27,17 +27,7 @@ A terminal-style chat interface powered by Ollama LLM.
    ```env
    OLLAMA_BASE_URL=http://localhost:11434
    OLLAMA_MODEL=llama3.2
-   GROQ_API_KEY=your_groq_api_key_here
-   GROQ_BASE_URL=https://api.groq.com
-   GROQ_MODEL=mixtral-8x7b-32768
    ```
-   
-   To get a GROQ API key:
-   - Go to [Groq Console](https://console.groq.com/)
-   - Sign up or log in
-   - Navigate to API Keys section
-   - Create a new API key
-   - Add it to your `.env` file
 
 4. **Start the project:**
    
@@ -78,19 +68,39 @@ Press `Ctrl+C` in the terminal to stop all services.
 
 - **Ollama Base URL**: Defaults to `http://localhost:11434`
 - **Ollama Model**: Defaults to `llama3.2`
-- **GROQ API Key**: Required for personality generation via Minstrel API
-- **GROQ Base URL**: Defaults to `https://api.groq.com`
-- **GROQ Model**: Defaults to `mixtral-8x7b-32768` (adjust if using a specific Minstrel model)
 - **Database**: SQLite database at `./agent.db`
 
 Override these in a `.env` file or environment variables.
 
-## Personality System
+## Overview of All Features
 
-The personality system uses GROQ Minstrel API to generate detailed character personality prompts:
+# routers (contains batch, chat, documents, system)
 
-1. User enters a character name (e.g., "Trevor from GTA V")
-2. The character name is sent to GROQ Minstrel API
-3. Minstrel generates a detailed personality prompt with traits, speech patterns, and mannerisms
-4. The generated personality prompt is saved to the conversation
-5. All subsequent Ollama responses use this personality context until a new personality is selected
+- batch: under construction
+
+- chat (where the llm operates): combines message, conversation, added documents, and urls to generate the llm response
+
+- documents: manages documents added in database
+
+- system: gets system information to determine if user has gpu or not (if user only has cpu uses a lighter ollama model)
+
+# services (context_manager, llm_service, system_service, vector_store)
+
+- context_manager: adds all needed context to response. Fetches documents from database and adds urls/files to context.
+
+- llm_service: includes the hardcoded context opener for every prompt, calls the ollama api
+
+- system_service: detects the system gpu or cpu
+
+- vector_store: under construction
+
+# utils (file_handlers, web_scraper)
+
+- file_handlers: extracts text from all filetypes using pdfplumber, then pyPDF if that doesnt work. Other libraries work for each file type
+
+- web_scraper: starts with Jina Reader API, if that doesnt work then tries direct HTML scraping, if that doesnt work then uses trafilatura
+
+# app (config, database, main)
+
+- standard stuff
+

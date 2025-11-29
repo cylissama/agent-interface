@@ -5,7 +5,7 @@ from typing import Optional
 def fetch_url(url: str, timeout: float = 30.0) -> str:
     """Fetch remote content via HTTP GET."""
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
     }
     response = httpx.get(url, timeout=timeout, headers=headers, follow_redirects=True)
     response.raise_for_status()

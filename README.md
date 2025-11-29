@@ -76,7 +76,7 @@ Override these in a `.env` file or environment variables.
 
 # routers (contains batch, chat, documents, system)
 
-- batch: under construction
+- batch: process multiple prompts in a single request with shared document/URL context. Useful for bulk Q&A, running multiple questions against the same sources.
 
 - chat (where the llm operates): combines message, conversation, added documents, and urls to generate the llm response
 

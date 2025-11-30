@@ -7,6 +7,8 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
+from collections import Counter
+import chromadb
 
 from ..database import get_db
 from ..models import Document
@@ -254,11 +256,65 @@ async def search_vectors_get(
 @router.get("/stats")
 async def get_vector_stats():
     """
-    Get statistics about the vector store.
+    Get detailed statistics about the vector store for visualization.
     """
-    vector_store = get_vector_store()
-    return vector_store.get_stats()
+    try:
+        # We need to find where the chroma_db folder is.
+        # Assuming typical structure: project_root/chroma_db
+        # This file is in: backend/app/routers/vectors.py
+        
+        # Go up 4 levels to get to project root
+        project_root = Path(__file__).parent.parent.parent.parent 
+        chroma_dir = project_root / "chroma_db"
+        
+        # Fallback: if running inside backend folder
+        if not chroma_dir.exists():
+            chroma_dir = project_root / "backend" / "chroma_db"
 
+        # Connect directly to ChromaDB to get the raw metadata
+        client = chromadb.PersistentClient(path=str(chroma_dir))
+        
+        # "documents" is the default collection name used in most setups
+        # If your services/vector_store.py uses a different name, update it here.
+        collection = client.get_collection("documents")
+        
+        # 1. Get total count
+        count = collection.count()
+        
+        # 2. Get all metadata to group chunks by their source
+        data = collection.get(include=['metadatas'])
+        metadatas = data['metadatas']
+        
+        # 3. Aggregate (Count how many chunks belong to each file/URL)
+        sources_counter = Counter()
+        for meta in metadatas:
+            if meta:
+                # We prioritize 'source_name' because your index functions use it
+                name = meta.get('source_name') or meta.get('source') or "Unknown"
+                sources_counter[name] += 1
+                
+        # 4. Format for the Frontend Bar Chart
+        source_details = [
+            {"name": name, "chunks": c} 
+            for name, c in sources_counter.most_common(15) # Top 15 sources
+        ]
+
+        return {
+            "total_chunks": count,
+            "unique_sources": len(sources_counter),
+            "embedding_model": "nomic-embed-text", 
+            "source_details": source_details
+        }
+        
+    except Exception as e:
+        print(f"Error fetching vector stats: {e}")
+        # Return empty structure so frontend doesn't crash
+        return {
+            "total_chunks": 0,
+            "unique_sources": 0,
+            "embedding_model": "Not Detected",
+            "source_details": []
+        }
 
 @router.delete("/document/{document_id}")
 async def delete_document_vectors(document_id: int):

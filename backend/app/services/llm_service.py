@@ -12,7 +12,8 @@ async def generate_response(
 ) -> str:
     """Generate a response using Ollama."""
     settings = get_settings()
-    model = model_name or settings.ollama_model
+    # model = model_name or settings.ollama_model
+    model = "llama3.2:latest"  # Use latest 3.2B model for better quality
     
     # Build context if provided
     context_text = ""

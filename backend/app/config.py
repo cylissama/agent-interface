@@ -25,7 +25,7 @@ class Settings(BaseSettings):
     
     # Ollama settings
     ollama_base_url: str = "http://localhost:11434"
-    ollama_model: str = "llama3.2:1b"  # Default to faster 1B model (can be overridden in .env)
+    ollama_model: str = "llama3.2:latest"  # Default to faster 1B model (can be overridden in .env)
     
     # Embedding settings (for vector store)
     embedding_model: str = "nomic-embed-text"  # Ollama embedding model

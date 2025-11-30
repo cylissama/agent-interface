@@ -24,6 +24,8 @@ A terminal-style chat interface powered by Ollama LLM.
    ```
    Note: `nomic-embed-text` is used for vector embeddings (semantic search).
 
+   Note: If the frontend gives a 404 model not found, ensure the pulled and served Ollama model is set correcly in the env and in the files that use it.
+
 3. **Configure settings** (optional):
    Create a `.env` file in the project root:
    ```env

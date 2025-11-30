@@ -42,10 +42,10 @@ def get_recommended_model(has_gpu: bool) -> str:
     """Get the recommended model based on GPU availability."""
     if has_gpu:
         # GPU can handle larger models efficiently
-        return "llama3.2"  # 3.2B model for better quality
+        return "llama3.2:latest"  # 3.2B model for better quality
     else:
         # CPU needs smaller models for speed
-        return "llama3.2:1b"  # 1B model for faster CPU inference
+        return "llama3.2:latest"  # 1B model for faster CPU inference
 
 
 async def get_system_info() -> dict:

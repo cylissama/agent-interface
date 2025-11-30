@@ -1,4 +1,5 @@
 from datetime import datetime
+import csv  # <--- Added import
 from fastapi import APIRouter, Depends, UploadFile, File, HTTPException
 from sqlalchemy.orm import Session
 from pathlib import Path
@@ -14,6 +15,30 @@ router = APIRouter()
 UPLOAD_DIR = Path(__file__).parent.parent.parent / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+# Define the CSV log file path
+CSV_LOG_FILE = UPLOAD_DIR / "upload_log.csv"
+
+def log_to_csv(entry_type: str, name: str, reference: str):
+    """
+    Appends an upload entry to the CSV file.
+    Creates the file with headers if it doesn't exist.
+    """
+    file_exists = CSV_LOG_FILE.exists()
+    
+    with open(CSV_LOG_FILE, mode='a', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
+        
+        # Write header if new file
+        if not file_exists:
+            writer.writerow(['Timestamp', 'Type', 'Name', 'Location'])
+            
+        # Write the entry
+        writer.writerow([
+            datetime.now().isoformat(),
+            entry_type,
+            name,
+            reference
+        ])
 
 @router.get("/", response_model=list[schemas.Document])
 def list_documents(db: Session = Depends(get_db)):
@@ -26,7 +51,7 @@ async def upload_documents(
     files: List[UploadFile] = File(...),
     db: Session = Depends(get_db),
 ):
-    """Upload one or more documents and extract text."""
+    """Upload one or more documents, extract text, and log to CSV."""
     uploaded_docs = []
     
     for file in files:
@@ -50,8 +75,16 @@ async def upload_documents(
             created_at=datetime.now(),
         )
         db.add(doc)
-        db.flush()
+        db.flush() # Flush to get the ID if needed immediately, though not strictly necessary here
         uploaded_docs.append(doc)
+
+        # --- LOG TO CSV ---
+        # We store the absolute path to the file
+        log_to_csv(
+            entry_type="File", 
+            name=file.filename, 
+            reference=str(file_path.absolute())
+        )
     
     db.commit()
     
@@ -63,7 +96,7 @@ async def upload_documents(
 
 @router.post("/urls", response_model=dict)
 async def process_urls(urls: List[str]):
-    """Process one or more URLs and extract content."""
+    """Process one or more URLs, extract content, and log to CSV."""
     from ..utils.web_scraper import extract_text_from_url
     
     results = []
@@ -82,6 +115,13 @@ async def process_urls(urls: List[str]):
                     "word_count": word_count,
                     "estimated_tokens": word_count
                 })
+                
+                # --- LOG TO CSV ---
+                log_to_csv(
+                    entry_type="URL", 
+                    name=url,  # Using URL as name since web pages might not have a clean title here
+                    reference=url
+                )
             else:
                 results.append({
                     "url": url,
@@ -118,5 +158,8 @@ async def delete_document(
     # Delete from database
     db.delete(doc)
     db.commit()
+    
+    # Note: We usually do NOT remove lines from a historical log (CSV) 
+    # when deleting the actual file, as the log serves as a history record.
     
     return {"message": "Document deleted"}

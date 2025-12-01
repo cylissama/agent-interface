@@ -399,31 +399,49 @@ const ChatInterface = ({ onSend }) => {
 
       {/* Sources panel ABOVE message box */}
       {showSources && (
-        <div className="sources-panel" style={{ marginTop: 8, marginBottom: 8, borderTop: "1px solid #2a2a2a", borderBottom: "1px solid #2a2a2a", padding: 12, backgroundColor: "#1a1a1a", borderRadius: 4 }}>
+        <div className="sources-panel" style={{ 
+          position: "absolute",
+          top: "calc(60vh - 120px)",
+          left: 0,
+          right: 0,
+          maxHeight: "110px",
+          overflowY: "auto",
+          padding: "12px 16px", 
+          backgroundColor: "#000000", 
+          borderTop: "1px solid #00ff00",
+          borderBottom: "1px solid #00ff00",
+          fontFamily: "'Courier New', Courier, monospace",
+          zIndex: 10
+        }}>
           <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
               <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600 }}>Add Context Sources</h3>
-                {(attachedFiles.length > 0 || urls.length > 0) && (
-                  <div style={{ fontSize: 11, color: "#888" }}>
-                    {attachedFiles.length} file(s), {urls.length} URL(s) • 
-                    Estimated context: ~{calculateContextTokens().toLocaleString()} tokens
-                    {urls.length > 0 && " (URLs will be processed server-side)"}
+                <h3 style={{ margin: 0, fontSize: 14, fontWeight: 600, color: "#00ff00" }}>[ATTACHED FILES]</h3>
+                {attachedFiles.length > 0 && (
+                  <div style={{ fontSize: 11, color: "#00cc00" }}>
+                    {attachedFiles.length} file(s) • ~{calculateContextTokens().toLocaleString()} tokens
                   </div>
                 )}
               </div>
               <button
                 type="button"
                 onClick={() => setShowSources(false)}
-                style={{ background: "none", border: "none", color: "#888", cursor: "pointer", fontSize: 18, padding: 0, width: 24, height: 24 }}
+                style={{ 
+                  background: "#000000", 
+                  border: "1px solid #00ff00", 
+                  color: "#00ff00", 
+                  cursor: "pointer", 
+                  fontSize: 14, 
+                  padding: "2px 8px",
+                  fontFamily: "'Courier New', Courier, monospace"
+                }}
                 title="Close panel"
               >
-                ×
+                [X]
               </button>
             </div>
             {/* File input */}
             <div>
-              <label style={{ display: "block", marginBottom: 6, fontSize: 13 }}>Attach files (PDF, TXT, DOC, DOCX, MD, RTF, CSV)</label>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <button
                   type="button"
@@ -434,14 +452,13 @@ const ChatInterface = ({ onSend }) => {
                   Choose files
                 </button>
                 {attachedFiles.length > 0 && (
-                  <span style={{ fontSize: 12 }}>{attachedFiles.length} file(s) selected</span>
+                  <span style={{ fontSize: 12, color: "#00cc00" }}>{attachedFiles.length} file(s) selected</span>
                 )}
               </div>
               {attachedFiles.length > 0 && (
-                <div style={{ marginTop: 4, fontSize: 12 }}>
+                <div style={{ marginTop: 8, fontSize: 12 }}>
                   {Array.from(attachedFiles).map((file, idx) => {
                     const fileSizeKB = (file.size / 1024).toFixed(1);
-                    // Rough estimate: assume 50% of file size is text, ~5 chars per word
                     const estimatedTokens = Math.floor((file.size * 0.5) / 5);
                     return (
                       <div key={idx} style={{ 
@@ -449,13 +466,14 @@ const ChatInterface = ({ onSend }) => {
                         display: "flex", 
                         alignItems: "center", 
                         gap: 8,
-                        padding: 6,
-                        backgroundColor: "#0a0a0a",
-                        borderRadius: 4
+                        padding: "4px 8px",
+                        backgroundColor: "#000000",
+                        border: "1px solid #004400",
+                        borderLeft: "2px solid #00ff00"
                       }}>
                         <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
-                          <span style={{ fontWeight: 500 }}>{file.name}</span>
-                          <span style={{ fontSize: 11, color: "#888" }}>
+                          <span style={{ fontWeight: 500, color: "#00ff00" }}>{file.name}</span>
+                          <span style={{ fontSize: 11, color: "#00cc00" }}>
                             {fileSizeKB} KB • ~{estimatedTokens.toLocaleString()} tokens
                           </span>
                         </div>
@@ -465,9 +483,19 @@ const ChatInterface = ({ onSend }) => {
                             const newFiles = Array.from(attachedFiles).filter((_, i) => i !== idx);
                             setAttachedFiles(newFiles);
                           }}
-                          style={{ fontSize: 11, padding: "4px 8px", background: "#ef4444", color: "white", border: "none", borderRadius: 3, cursor: "pointer" }}
+                          style={{ 
+                            fontSize: 11, 
+                            padding: "2px 8px",
+                            background: "#000000",
+                            color: "#00ff00",
+                            border: "1px solid #00ff00",
+                            cursor: "pointer",
+                            fontFamily: "'Courier New', Courier, monospace"
+                          }}
+                          onMouseOver={(e) => { e.target.style.background = "#00ff00"; e.target.style.color = "#000000"; }}
+                          onMouseOut={(e) => { e.target.style.background = "#000000"; e.target.style.color = "#00ff00"; }}
                         >
-                          Remove
+                          [X]
                         </button>
                       </div>
                     );
@@ -475,99 +503,19 @@ const ChatInterface = ({ onSend }) => {
                   <button
                     type="button"
                     onClick={() => setAttachedFiles([])}
-                    style={{ marginTop: 4, fontSize: 11, background: "none", border: "none", color: "#888", cursor: "pointer", textDecoration: "underline" }}
-                  >
-                    Clear all files
-                  </button>
-                </div>
-              )}
-            </div>
-            
-            {/* URL input */}
-            <div>
-              <label style={{ display: "block", marginBottom: 6, fontSize: 13 }}>Add website URLs</label>
-              <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                <input
-                  type="text"
-                  value={urlInput}
-                  onChange={(e) => setUrlInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && urlInput.trim()) {
-                      e.preventDefault();
-                      const trimmed = urlInput.trim();
-                      // Basic URL validation
-                      if (trimmed && !urls.includes(trimmed)) {
-                        // Add http:// if no protocol is specified
-                        const urlToAdd = trimmed.startsWith('http://') || trimmed.startsWith('https://') 
-                          ? trimmed 
-                          : `https://${trimmed}`;
-                        setUrls([...urls, urlToAdd]);
-                        setUrlInput("");
-                      }
-                    }
-                  }}
-                  placeholder="Enter URL (e.g., example.com) and press Enter"
-                  style={{ flex: 1, padding: 6, background: "#0a0a0a", color: "#fff", border: "1px solid #2a2a2a", borderRadius: 4, fontSize: 13 }}
-                />
-                <button
-                  type="button"
-                  className="send-button"
-                  onClick={() => {
-                    if (urlInput.trim()) {
-                      const trimmed = urlInput.trim();
-                      if (trimmed && !urls.includes(trimmed)) {
-                        const urlToAdd = trimmed.startsWith('http://') || trimmed.startsWith('https://') 
-                          ? trimmed 
-                          : `https://${trimmed}`;
-                        setUrls([...urls, urlToAdd]);
-                        setUrlInput("");
-                      }
-                    }
-                  }}
-                  disabled={!urlInput.trim()}
-                  title="Add URL"
-                >
-                  Add
-                </button>
-              </div>
-              {urls.length > 0 && (
-                <div style={{ marginTop: 4, fontSize: 12 }}>
-                  {urls.map((url, idx) => (
-                    <div key={idx} style={{ 
-                      marginBottom: 4, 
-                      display: "flex", 
-                      alignItems: "center", 
-                      gap: 8,
-                      padding: 6,
-                      backgroundColor: "#0a0a0a",
-                      borderRadius: 4
-                    }}>
-                      <div style={{ flex: 1 }}>
-                        <span style={{ wordBreak: "break-all", display: "block" }}>{url}</span>
-                        <span style={{ fontSize: 11, color: "#888" }}>
-                          Will be processed when message is sent
-                        </span>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUrls(urls.filter((_, i) => i !== idx));
-                        }}
-                        style={{ fontSize: 11, padding: "4px 8px", background: "#ef4444", color: "white", border: "none", borderRadius: 3, cursor: "pointer" }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setUrls([]);
-                      setUrlInput("");
+                    style={{ 
+                      marginTop: 4, 
+                      fontSize: 11,
+                      background: "none",
+                      border: "none",
+                      color: "#00cc00",
+                      cursor: "pointer",
+                      fontFamily: "'Courier New', Courier, monospace"
                     }}
-                    style={{ marginTop: 4, fontSize: 11, background: "none", border: "none", color: "#888", cursor: "pointer", textDecoration: "underline" }}
+                    onMouseOver={(e) => { e.target.style.color = "#00ff00"; }}
+                    onMouseOut={(e) => { e.target.style.color = "#00cc00"; }}
                   >
-                    Clear all URLs
+                    [CLEAR ALL]
                   </button>
                 </div>
               )}

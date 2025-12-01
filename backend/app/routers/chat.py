@@ -37,11 +37,14 @@ async def create_completion(
     document_ids: Optional[List[int]] = Query(None),
     urls: Optional[List[str]] = Query(None),
     use_rag: bool = Query(True, description="Auto-search vector store for relevant context"),
+    auto_index: bool = Query(True, description="Auto-index attached documents/URLs to vector store"),
     db: Session = Depends(get_db),
 ):
     """Generate an LLM response with optional document/URL context and automatic RAG search."""
     from ..models import Message, Conversation, Document
     from pathlib import Path
+    import logging
+    logger = logging.getLogger(__name__)
     
     # Get URLs from raw query params (most reliable)
     raw_urls = request.query_params.getlist('urls')
@@ -89,6 +92,10 @@ async def create_completion(
     
     context_manager = ContextManager(max_tokens=4000)
     
+    # Track extracted content for auto-indexing
+    extracted_documents = []  # [(doc_id, doc_name, text), ...]
+    extracted_urls = []  # [(url, text), ...]
+    
     # Add documents to context
     if document_ids:
         documents = db.query(Document).filter(Document.id.in_(document_ids)).all()
@@ -99,6 +106,7 @@ async def create_completion(
                 text = extract_text(doc_path)
                 if text and len(text.strip()) > 0:
                     context_manager.add_source(content=text, source_type="file", source_name=doc.name)
+                    extracted_documents.append((doc.id, doc.name, text))
     
     # Add URLs to context
     if urls:
@@ -106,6 +114,7 @@ async def create_completion(
             text = extract_text_from_url(url, timeout=30.0)
             if text and len(text.strip()) > 50:
                 context_manager.add_source(content=text, source_type="url", source_name=url)
+                extracted_urls.append((url, text))
     
     # Auto-search vector store for relevant context (RAG)
     if use_rag:
@@ -162,6 +171,39 @@ async def create_completion(
     db.add(assistant_message)
     db.commit()
     db.refresh(assistant_message)
+    
+    # Auto-index attached content to vector store for future RAG searches
+    if auto_index and (extracted_documents or extracted_urls):
+        try:
+            from ..services.vector_store import get_vector_store
+            vector_store = get_vector_store()
+            
+            # Index documents
+            for doc_id, doc_name, text in extracted_documents:
+                try:
+                    vector_store.add_document(
+                        text=text,
+                        source_name=doc_name,
+                        source_type="document",
+                        document_id=doc_id,
+                    )
+                    logger.info(f"Auto-indexed document: {doc_name}")
+                except Exception as e:
+                    logger.warning(f"Failed to auto-index document {doc_name}: {e}")
+            
+            # Index URLs
+            for url, text in extracted_urls:
+                try:
+                    vector_store.add_document(
+                        text=text,
+                        source_name=url,
+                        source_type="url",
+                    )
+                    logger.info(f"Auto-indexed URL: {url}")
+                except Exception as e:
+                    logger.warning(f"Failed to auto-index URL {url}: {e}")
+        except Exception as e:
+            logger.warning(f"Auto-indexing failed: {e}")
     
     return schemas.Message(
         id=assistant_message.id,

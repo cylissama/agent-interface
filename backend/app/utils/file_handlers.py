@@ -110,6 +110,40 @@ def extract_text(path: Path) -> str:
             logger.warning(f"Error reading RTF {path.name}: {e}")
             return path.read_text(encoding='utf-8', errors='ignore')
     
+    # CSV files - format as readable table
+    if suffix == '.csv' or mime_type == 'text/csv':
+        try:
+            import csv
+            text_parts = []
+            with path.open('r', encoding='utf-8', errors='ignore', newline='') as f:
+                reader = csv.reader(f)
+                rows = list(reader)
+                
+                if not rows:
+                    return f"[CSV file {path.name} - Empty file]"
+                
+                # Get headers (first row)
+                headers = rows[0] if rows else []
+                text_parts.append(f"CSV Data from {path.name}")
+                text_parts.append(f"Columns: {', '.join(headers)}")
+                text_parts.append(f"Total rows: {len(rows) - 1}")
+                text_parts.append("")
+                
+                # Format as readable table (header row + data)
+                text_parts.append(" | ".join(headers))
+                text_parts.append("-" * 50)
+                
+                for row in rows[1:]:  # Skip header
+                    # Pad row if needed
+                    while len(row) < len(headers):
+                        row.append("")
+                    text_parts.append(" | ".join(row[:len(headers)]))
+                
+                return '\n'.join(text_parts)
+        except Exception as e:
+            logger.warning(f"CSV parsing failed for {path.name}: {e}, reading as text")
+            return path.read_text(encoding='utf-8', errors='ignore')
+    
     # Code files - read as plain text with syntax preserved
     code_extensions = {
         '.py', '.js', '.jsx', '.ts', '.tsx', '.java', '.cpp', '.c', '.h', '.hpp',

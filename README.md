@@ -1,25 +1,25 @@
-# 🖥️ Agent Interface
+# Agent Interface
 
 A retro terminal-style chat interface powered by **Ollama LLM** with RAG (Retrieval-Augmented Generation) capabilities. Upload documents, add URLs, and have intelligent conversations with context-aware AI.
 
 ---
 
-## ✨ Features
+## Features
 
 | Feature | Description |
 |---------|-------------|
-| 🤖 **Local LLM Chat** | Powered by Ollama - runs completely offline on your machine |
-| 📄 **Document Upload** | Support for PDF, DOCX, TXT, MD, RTF, CSV files |
-| 🌐 **URL Context** | Add website URLs for the AI to reference |
-| 🔍 **Semantic Search (RAG)** | ChromaDB vector store with automatic document chunking |
-| ⚡ **Batch Processing** | Process multiple prompts against the same sources |
-| 📊 **Analytics Dashboard** | View indexed sources and vector store statistics |
-| 🎨 **Retro Terminal UI** | Classic green-on-black terminal aesthetic |
-| 🚀 **Auto GPU Detection** | Automatically selects optimal model for your hardware |
+| **Local LLM Chat** | Powered by Ollama - runs completely offline on your machine |
+| **Document Upload** | Support for PDF, DOCX, TXT, MD, RTF, CSV files |
+| **URL Context** | Add website URLs for the AI to reference |
+| **Semantic Search (RAG)** | ChromaDB vector store with automatic document chunking |
+| **Batch Processing** | Process multiple prompts against the same sources |
+| **Analytics Dashboard** | View indexed sources and vector store statistics |
+| **Retro Terminal UI** | Classic green-on-black terminal aesthetic |
+| **Auto GPU Detection** | Automatically selects optimal model for your hardware |
 
 ---
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Prerequisites
 
@@ -40,41 +40,41 @@ chmod +x StartDev.sh && ./StartDev.sh
 ```
 
 This will:
-- ✅ Check prerequisites
-- ✅ Pull required Ollama models (`llama3.2`, `nomic-embed-text`)
-- ✅ Create Python virtual environment
-- ✅ Install all dependencies
-- ✅ Start backend (http://localhost:8000)
-- ✅ Start frontend (http://localhost:5173)
+- Check prerequisites
+- Pull required Ollama models (`llama3.2`, `nomic-embed-text`)
+- Create Python virtual environment
+- Install all dependencies
+- Start backend (http://localhost:8000)
+- Start frontend (http://localhost:5173)
 
 ---
 
-## 🏗️ Architecture
+## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Frontend (React)                         │
-│                   Terminal-style Chat Interface                 │
-└─────────────────────────────────────────────────────────────────┘
-                                │
-                                ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      Backend (FastAPI)                          │
-├─────────────────┬─────────────────┬─────────────────────────────┤
-│   /chat         │   /vectors      │   /batch                    │
-│   Completions   │   RAG Search    │   Bulk Processing           │
-└─────────────────┴─────────────────┴─────────────────────────────┘
-         │                  │                    │
-         ▼                  ▼                    ▼
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────────────┐
-│     Ollama      │ │    ChromaDB     │ │      SQLite             │
-│   LLM + Embed   │ │  Vector Store   │ │   Conversations         │
-└─────────────────┘ └─────────────────┘ └─────────────────────────┘
++------------------------------------------------------------------+
+|                        Frontend (React)                          |
+|                   Terminal-style Chat Interface                  |
++------------------------------------------------------------------+
+                                |
+                                v
++------------------------------------------------------------------+
+|                      Backend (FastAPI)                           |
++-----------------+-----------------+------------------------------+
+|   /chat         |   /vectors      |   /batch                     |
+|   Completions   |   RAG Search    |   Bulk Processing            |
++-----------------+-----------------+------------------------------+
+         |                  |                    |
+         v                  v                    v
++-----------------+ +-----------------+ +-------------------------+
+|     Ollama      | |    ChromaDB     | |      SQLite             |
+|   LLM + Embed   | |  Vector Store   | |   Conversations         |
++-----------------+ +-----------------+ +-------------------------+
 ```
 
 ---
 
-## 📚 How It Works
+## How It Works
 
 ### RAG Pipeline (Retrieval-Augmented Generation)
 
@@ -86,17 +86,17 @@ This will:
 
 ```
 User: "What is backpropagation?"
-         │
-         ▼
-┌─────────────────────────────────────┐
-│ 1. Embed query → [0.12, -0.34, ...] │
-│ 2. Search ChromaDB → Top 3 chunks   │
-│ 3. Filter → similarity > 30%        │
-│ 4. Build context with snippets      │
-│ 5. LLM generates answer             │
-└─────────────────────────────────────┘
-         │
-         ▼
+         |
+         v
++-------------------------------------+
+| 1. Embed query -> [0.12, -0.34, ...] |
+| 2. Search ChromaDB -> Top 3 chunks   |
+| 3. Filter -> similarity > 30%        |
+| 4. Build context with snippets       |
+| 5. LLM generates answer              |
++-------------------------------------+
+         |
+         v
 "Backpropagation is the algorithm used 
  to train neural networks by adjusting 
  weights based on the error gradient..."
@@ -108,7 +108,7 @@ When you attach documents or URLs in chat, they're **automatically indexed** to 
 
 ---
 
-## 🔌 API Reference
+## API Reference
 
 ### Chat
 | Endpoint | Method | Description |
@@ -143,11 +143,11 @@ When you attach documents or URLs in chat, they're **automatically indexed** to 
 |----------|--------|-------------|
 | `/system/info` | GET | Get GPU status and recommended model |
 
-📖 **Full API docs available at:** http://localhost:8000/docs
+**Full API docs available at:** http://localhost:8000/docs
 
 ---
 
-## ⚙️ Configuration
+## Configuration
 
 Create a `.env` file in the project root:
 
@@ -165,7 +165,7 @@ DATABASE_URL=sqlite:///./agent.db
 
 ---
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 | Layer | Technology |
 |-------|------------|
@@ -180,7 +180,7 @@ DATABASE_URL=sqlite:///./agent.db
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 LLMInterface/
@@ -214,13 +214,13 @@ LLMInterface/
 
 ---
 
-## 🎯 Usage Examples
+## Usage Examples
 
 ### Basic Chat
 Simply type your message and press Enter. The AI will respond using the default model.
 
 ### Chat with Document Context
-1. Click the 📎 attach button
+1. Click the attach button
 2. Select PDF, DOCX, or other supported files
 3. Ask questions about the document content
 
@@ -246,7 +246,7 @@ fetch('http://localhost:8000/batch/completions', {
 
 ---
 
-## 🤝 Contributing
+## Contributing
 
 1. Fork the repository
 2. Create a feature branch (`git checkout -b feature/amazing-feature`)
@@ -256,7 +256,7 @@ fetch('http://localhost:8000/batch/completions', {
 
 ---
 
-## 📄 License
+## License
 
 This project is licensed under the MIT License.
 
@@ -264,8 +264,8 @@ This project is licensed under the MIT License.
 
 <div align="center">
 
-**Built with ❤️ using Ollama, FastAPI, and React**
+**Built with Ollama, FastAPI, and React**
 
-[Report Bug](../../issues) · [Request Feature](../../issues)
+[Report Bug](../../issues) | [Request Feature](../../issues)
 
 </div>

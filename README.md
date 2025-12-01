@@ -1,114 +1,271 @@
-# Agent Interface
+# 🖥️ Agent Interface
 
-A terminal-style chat interface powered by Ollama LLM.
+A retro terminal-style chat interface powered by **Ollama LLM** with RAG (Retrieval-Augmented Generation) capabilities. Upload documents, add URLs, and have intelligent conversations with context-aware AI.
 
-## Setup
+---
+
+## ✨ Features
+
+| Feature | Description |
+|---------|-------------|
+| 🤖 **Local LLM Chat** | Powered by Ollama - runs completely offline on your machine |
+| 📄 **Document Upload** | Support for PDF, DOCX, TXT, MD, RTF, CSV files |
+| 🌐 **URL Context** | Add website URLs for the AI to reference |
+| 🔍 **Semantic Search (RAG)** | ChromaDB vector store with automatic document chunking |
+| ⚡ **Batch Processing** | Process multiple prompts against the same sources |
+| 📊 **Analytics Dashboard** | View indexed sources and vector store statistics |
+| 🎨 **Retro Terminal UI** | Classic green-on-black terminal aesthetic |
+| 🚀 **Auto GPU Detection** | Automatically selects optimal model for your hardware |
+
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
-1. **Ollama** - Install from [ollama.ai](https://ollama.ai)
-2. **Python 3.11+** with virtual environment
-3. **Node.js** for frontend
+- [Ollama](https://ollama.ai) - Local LLM runtime
+- Python 3.11+
+- Node.js 18+
 
-### Quick Start
+### One-Command Setup
 
-1. **Start Ollama** (if not already running):
-   ```bash
-   ollama serve
-   ```
+**Windows (PowerShell):**
+```powershell
+.\StartDev.ps1
+```
 
-2. **Pull models** (optional, defaults to llama3.2):
-   ```bash
-   ollama pull llama3.2
-   ollama pull nomic-embed-text
-   ```
-   Note: `nomic-embed-text` is used for vector embeddings (semantic search).
+**Linux/Mac:**
+```bash
+chmod +x StartDev.sh && ./StartDev.sh
+```
 
-3. **Configure settings** (optional):
-   Create a `.env` file in the project root:
-   ```env
-   OLLAMA_BASE_URL=http://localhost:11434
-   OLLAMA_MODEL=llama3.2
-   ```
+This will:
+- ✅ Check prerequisites
+- ✅ Pull required Ollama models (`llama3.2`, `nomic-embed-text`)
+- ✅ Create Python virtual environment
+- ✅ Install all dependencies
+- ✅ Start backend (http://localhost:8000)
+- ✅ Start frontend (http://localhost:5173)
 
-4. **Start the project:**
-   
-   **Windows (PowerShell):**
-   ```powershell
-   .\StartDev.ps1
-   ```
-   
-   **Note:** If you get an execution policy error, run:
-   ```powershell
-   Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-   .\StartDev.ps1
-   ```
-   
-   **Linux/Mac:**
-   ```bash
-   chmod +x StartDev.sh
-   ./StartDev.sh
-   ```
+---
 
-   This single command will:
-   - Check prerequisites (Python, Node.js)
-   - Create/activate Python virtual environment at project root (`.venv/`)
-   - Install all dependencies (backend Python packages & frontend npm packages)
-   - Start backend server on http://localhost:8000
-   - Start frontend server on http://localhost:5173
-   - Display all service URLs
-   
-   **Note:** The project uses a single Python virtual environment at the project root (`.venv/`) for all Python dependencies. The frontend uses npm/node_modules (not a Python environment).
+## 🏗️ Architecture
 
-5. **Open your browser:**
-   - Frontend: http://localhost:5173
-   - API Docs: http://localhost:8000/docs
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                        Frontend (React)                         │
+│                   Terminal-style Chat Interface                 │
+└─────────────────────────────────────────────────────────────────┘
+                                │
+                                ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      Backend (FastAPI)                          │
+├─────────────────┬─────────────────┬─────────────────────────────┤
+│   /chat         │   /vectors      │   /batch                    │
+│   Completions   │   RAG Search    │   Bulk Processing           │
+└─────────────────┴─────────────────┴─────────────────────────────┘
+         │                  │                    │
+         ▼                  ▼                    ▼
+┌─────────────────┐ ┌─────────────────┐ ┌─────────────────────────┐
+│     Ollama      │ │    ChromaDB     │ │      SQLite             │
+│   LLM + Embed   │ │  Vector Store   │ │   Conversations         │
+└─────────────────┘ └─────────────────┘ └─────────────────────────┘
+```
 
-Press `Ctrl+C` in the terminal to stop all services.
+---
 
-## Configuration
+## 📚 How It Works
 
-- **Ollama Base URL**: Defaults to `http://localhost:11434`
-- **Ollama Model**: Defaults to `llama3.2`
-- **Database**: SQLite database at `./agent.db`
+### RAG Pipeline (Retrieval-Augmented Generation)
 
-Override these in a `.env` file or environment variables.
+1. **Index** - Documents/URLs are chunked and embedded using `nomic-embed-text`
+2. **Store** - Embeddings saved to ChromaDB vector database
+3. **Search** - User query is embedded and matched against stored chunks
+4. **Augment** - Top-k relevant chunks added to LLM context
+5. **Generate** - LLM responds using retrieved context
 
-## Overview of All Features
+```
+User: "What is backpropagation?"
+         │
+         ▼
+┌─────────────────────────────────────┐
+│ 1. Embed query → [0.12, -0.34, ...] │
+│ 2. Search ChromaDB → Top 3 chunks   │
+│ 3. Filter → similarity > 30%        │
+│ 4. Build context with snippets      │
+│ 5. LLM generates answer             │
+└─────────────────────────────────────┘
+         │
+         ▼
+"Backpropagation is the algorithm used 
+ to train neural networks by adjusting 
+ weights based on the error gradient..."
+```
 
-# routers (batch, chat, documents, system, vectors)
+### Auto-Indexing
 
-- batch: process multiple prompts in a single request with shared document/URL context. Useful for bulk Q&A, running multiple questions against the same sources.
+When you attach documents or URLs in chat, they're **automatically indexed** to ChromaDB for future semantic search. No manual indexing required!
 
-- chat (where the llm operates): combines message, conversation, added documents, and urls to generate the llm response
+---
 
-- documents: manages documents added in database
+## 🔌 API Reference
 
-- system: gets system information to determine if user has gpu or not (if user only has cpu uses a lighter ollama model)
+### Chat
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/chat/completion` | POST | Send message with optional document/URL context |
+| `/chat/conversation/{id}` | GET | Retrieve conversation history |
 
-- vectors: semantic search endpoints - index documents/URLs into ChromaDB, search by meaning not keywords
-   RAG is ON by default (use_rag=true)
-   Searches top 3 most relevant chunks
-   Only includes chunks with >30% similarity score
-   Shows source name with relevance percentage in context
+### Documents
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/documents/upload` | POST | Upload files (PDF, DOCX, TXT, MD, RTF, CSV) |
+| `/documents/` | GET | List all uploaded documents |
+| `/documents/{id}` | DELETE | Remove a document |
 
-# services (context_manager, llm_service, system_service, vector_store)
+### Vectors (RAG)
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/vectors/index/document` | POST | Index a document by ID |
+| `/vectors/index/url` | POST | Index content from URL |
+| `/vectors/index/text` | POST | Index raw text |
+| `/vectors/search` | POST | Semantic search across indexed content |
+| `/vectors/stats` | GET | Get vector store statistics |
 
-- context_manager: adds all needed context to response. Fetches documents from database and adds urls/files to context.
+### Batch Processing
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/batch/completions` | POST | Process multiple prompts with shared context |
+| `/batch/urls` | POST | Extract content from multiple URLs |
 
-- llm_service: includes the hardcoded context opener for every prompt, calls the ollama api
+### System
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/system/info` | GET | Get GPU status and recommended model |
 
-- system_service: detects the system gpu or cpu
+📖 **Full API docs available at:** http://localhost:8000/docs
 
-- vector_store: ChromaDB-based vector storage with Ollama embeddings. Stores document chunks as vectors for semantic search.
+---
 
-# utils (file_handlers, web_scraper)
+## ⚙️ Configuration
 
-- file_handlers: extracts text from all filetypes using pdfplumber, then pyPDF if that doesnt work. Other libraries work for each file type
+Create a `.env` file in the project root:
 
-- web_scraper: starts with Jina Reader API, if that doesnt work then tries direct HTML scraping, if that doesnt work then uses trafilatura
+```env
+# Ollama Settings
+OLLAMA_BASE_URL=http://localhost:11434
+OLLAMA_MODEL=llama3.2
 
-# app (config, database, main)
+# Embedding Model (for RAG)
+EMBEDDING_MODEL=nomic-embed-text
 
-- standard stuff
+# Database
+DATABASE_URL=sqlite:///./agent.db
+```
 
+---
+
+## 🛠️ Tech Stack
+
+| Layer | Technology |
+|-------|------------|
+| **Frontend** | React, Vite |
+| **Backend** | FastAPI, Python 3.11+ |
+| **LLM** | Ollama (llama3.2) |
+| **Embeddings** | nomic-embed-text |
+| **Vector Store** | ChromaDB |
+| **Database** | SQLite |
+| **Document Parsing** | pdfplumber, python-docx, trafilatura |
+| **Web Scraping** | Jina Reader API, BeautifulSoup |
+
+---
+
+## 📁 Project Structure
+
+```
+LLMInterface/
+├── backend/
+│   ├── app/
+│   │   ├── routers/          # API endpoints
+│   │   │   ├── chat.py       # Chat completions
+│   │   │   ├── documents.py  # File uploads
+│   │   │   ├── vectors.py    # RAG/search
+│   │   │   ├── batch.py      # Bulk processing
+│   │   │   └── system.py     # System info
+│   │   ├── services/         # Business logic
+│   │   │   ├── llm_service.py
+│   │   │   ├── vector_store.py
+│   │   │   └── context_manager.py
+│   │   └── utils/            # Helpers
+│   │       ├── file_handlers.py
+│   │       └── web_scraper.py
+│   └── requirements.txt
+├── frontend/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── ChatInterface.jsx
+│   │   │   └── VisualizationModal.jsx
+│   │   └── App.jsx
+│   └── package.json
+├── StartDev.ps1              # Windows startup script
+├── StartDev.sh               # Linux/Mac startup script
+└── README.md
+```
+
+---
+
+## 🎯 Usage Examples
+
+### Basic Chat
+Simply type your message and press Enter. The AI will respond using the default model.
+
+### Chat with Document Context
+1. Click the 📎 attach button
+2. Select PDF, DOCX, or other supported files
+3. Ask questions about the document content
+
+### Chat with URL Context
+1. Enter a URL in the "Website URL Context" box
+2. Click "Add URL"
+3. Ask questions about the webpage content
+
+### Batch Processing (Developer Console)
+```javascript
+fetch('http://localhost:8000/batch/completions', {
+  method: 'POST',
+  headers: {'Content-Type': 'application/json'},
+  body: JSON.stringify({
+    prompts: [
+      {prompt: "Summarize this", id: "q1"},
+      {prompt: "List key points", id: "q2"}
+    ],
+    urls: ["https://example.com/article"]
+  })
+}).then(r => r.json()).then(console.log)
+```
+
+---
+
+## 🤝 Contributing
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit changes (`git commit -m 'Add amazing feature'`)
+4. Push to branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
+
+---
+
+## 📄 License
+
+This project is licensed under the MIT License.
+
+---
+
+<div align="center">
+
+**Built with ❤️ using Ollama, FastAPI, and React**
+
+[Report Bug](../../issues) · [Request Feature](../../issues)
+
+</div>

@@ -31,7 +31,7 @@ async def upload_documents(
     
     for file in files:
         # Validate file type
-        allowed_extensions = {'.pdf', '.txt', '.doc', '.docx', '.md', '.rtf'}
+        allowed_extensions = {'.pdf', '.txt', '.doc', '.docx', '.md', '.rtf', '.csv'}
         file_ext = Path(file.filename).suffix.lower()
         
         if file_ext not in allowed_extensions:

@@ -423,7 +423,7 @@ const ChatInterface = ({ onSend }) => {
             </div>
             {/* File input */}
             <div>
-              <label style={{ display: "block", marginBottom: 6, fontSize: 13 }}>Attach files (PDF, TXT, DOC, DOCX, MD, RTF)</label>
+              <label style={{ display: "block", marginBottom: 6, fontSize: 13 }}>Attach files (PDF, TXT, DOC, DOCX, MD, RTF, CSV)</label>
               <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
                 <button
                   type="button"
@@ -678,7 +678,7 @@ const ChatInterface = ({ onSend }) => {
             ref={hiddenFileInputRef}
             type="file"
             multiple
-            accept=".pdf,.txt,.doc,.docx,.md,.rtf"
+            accept=".pdf,.txt,.doc,.docx,.md,.rtf,.csv"
             style={{ display: "none" }}
             onChange={(e) => {
               const files = Array.from(e.target.files ?? []);
